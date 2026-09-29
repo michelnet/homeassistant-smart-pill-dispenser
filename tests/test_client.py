@@ -57,7 +57,7 @@ class FakeTransport:
                     volume = command[3]
                 continue
             payload = {
-                4: b"A1310TEST0000001",
+                4: b"A1310TEST000001",
                 6: b"\x01\x02\x03",
                 8: b"\x00\x00K",
                 10: bytes([volume]),

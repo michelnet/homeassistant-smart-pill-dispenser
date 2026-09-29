@@ -79,7 +79,9 @@ class SerialProfile(ServiceInterface):
             self.connection.close()
             self.connection = None
         if not self.ready.done():
-            self.ready.cancel()
+            self.ready.set_exception(TransportError("SPP profile disconnected"))
+            # Mark observed even when ConnectProfile failed before awaiting ready.
+            self.ready.exception()
 
 
 async def call(

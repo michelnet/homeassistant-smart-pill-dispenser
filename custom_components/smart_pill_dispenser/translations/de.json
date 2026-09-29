@@ -4,17 +4,26 @@
     "flow_title": "{name}",
     "step": {
       "user": {
-        "title": "A1310 verbinden (experimentell)",
-        "description": "Spender aufwecken und PillCalendar auf dem iPhone schließen. Diese experimentelle Integration benötigt einen lokalen Linux-Bluetooth-Classic-Adapter (SPP). ESPHome-BLE-Proxys reichen nicht aus. Die Kompatibilität am Gerät ist noch unbestätigt. Die Adresse steht in der Bluetooth-Geräteerkennung von Home Assistant.",
+        "title": "A1310 über Bluetooth verbinden",
+        "description": "Spender aufwecken und PillCalendar auf dem iPhone schließen. BLE verwendet deinen aktiven ESPHome-Bluetooth-Proxy. Dieser erste BLE-Stand erfasst Dienste und liest Standardwerte, falls vorhanden. Die herstellerspezifischen BLE-Funktionen sind noch nicht entschlüsselt; nach Einrichtung bitte die Diagnose herunterladen.",
         "data": {
           "address": "Bluetooth-Adresse",
+          "transport": "Verbindung"
+        }
+      },
+      "classic": {
+        "title": "Lokalen Classic-Adapter auswählen",
+        "description": "Spender aufwecken und PillCalendar auf dem iPhone schließen. Diese experimentelle Integration benötigt einen lokalen Linux-Bluetooth-Classic-Adapter (SPP). ESPHome-BLE-Proxys reichen nicht aus. Die Kompatibilität am Gerät ist noch unbestätigt. Die Adresse steht in der Bluetooth-Geräteerkennung von Home Assistant.",
+        "data": {
           "adapter": "Lokaler Adapter (zum Beispiel hci0)"
         }
       }
     },
     "error": {
       "invalid_address": "Bluetooth-MAC-Adresse (AA:BB:CC:DD:EE:FF) und Adapter wie hci0 eingeben.",
-      "cannot_connect": "Keine gültige A1310-Antwort. Gerät aufwecken, PillCalendar schließen und lokalen Bluetooth-Classic-Adapter sowie System-D-Bus prüfen. BLE-Proxys unterstützen SPP nicht."
+      "cannot_connect": "Keine gültige A1310-Antwort. Gerät aufwecken, PillCalendar schließen und lokalen Bluetooth-Classic-Adapter sowie System-D-Bus prüfen. BLE-Proxys unterstützen SPP nicht.",
+      "cannot_connect_ble": "BLE-Verbindung fehlgeschlagen. Spender aufwecken, PillCalendar schließen und aktiven Proxy mit freiem Verbindungsplatz prüfen.",
+      "no_connectable_device": "Kein aktiver Proxy erreicht das Gerät. In ESPHome bluetooth_proxy.active aktivieren und den Spender in Reichweite aufwecken."
     },
     "abort": {
       "already_configured": "Dieser Spender ist bereits eingerichtet.",
@@ -32,6 +41,15 @@
       },
       "last_success": {
         "name": "Letzte erfolgreiche Aktualisierung"
+      },
+      "service_count": {
+        "name": "BLE-Dienste"
+      },
+      "protocol_status": {
+        "name": "BLE-Protokoll",
+        "state": {
+          "awaiting_device_profile": "Geräteprofil noch zu bestätigen"
+        }
       }
     },
     "number": {

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import SOURCE_USER
+from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
 from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -32,6 +32,7 @@ def entry(hass):
 
 
 async def test_setup_and_unload(hass, entry, mock_client):
+    entry._async_set_state(hass, ConfigEntryState.SETUP_IN_PROGRESS, None)
     with patch.object(
         hass.config_entries, "async_forward_entry_setups", new_callable=AsyncMock
     ) as forward:
@@ -71,7 +72,7 @@ async def test_failures_and_recovery(hass, entry, status):
     assert coordinator.last_update_success
 
 
-async def test_config_flow_invalid_then_success(hass, mock_client):
+async def test_config_flow_invalid_then_success(hass, mock_ble):
     with (
         patch(
             "custom_components.smart_pill_dispenser.config_flow.sys",
@@ -87,12 +88,12 @@ async def test_config_flow_invalid_then_success(hass, mock_client):
         )
         assert result["type"] == "form"
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"address": "bad", "adapter": "hci0"}
+            result["flow_id"], {"address": "bad", "transport": "ble"}
         )
         assert result["errors"] == {"base": "invalid_address"}
-        mock_client.assert_not_awaited()
+        mock_ble.assert_not_awaited()
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"address": "aa:bb:cc:dd:ee:ff", "adapter": "hci0"}
+            result["flow_id"], {"address": "aa:bb:cc:dd:ee:ff", "transport": "ble"}
         )
         assert result["type"] == "create_entry"
         assert result["data"]["address"] == "AA:BB:CC:DD:EE:FF"
@@ -111,8 +112,8 @@ async def test_config_flow_duplicate(hass, entry, mock_client):
     mock_client.assert_not_awaited()
 
 
-async def test_no_connection_creates_no_entry(hass, mock_client):
-    mock_client.side_effect = TransportError("no local adapter")
+async def test_no_connection_creates_no_entry(hass, mock_ble):
+    mock_ble.side_effect = TransportError("no proxy")
     with patch(
         "custom_components.smart_pill_dispenser.config_flow.sys",
         SimpleNamespace(platform="linux"),
@@ -120,7 +121,33 @@ async def test_no_connection_creates_no_entry(hass, mock_client):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": SOURCE_USER},
-            data={"address": "AA:BB:CC:DD:EE:FF", "adapter": "hci0"},
+            data={"address": "AA:BB:CC:DD:EE:FF", "transport": "ble"},
         )
-    assert result["errors"] == {"base": "cannot_connect"}
+    assert result["errors"] == {"base": "cannot_connect_ble"}
     assert not hass.config_entries.async_entries(DOMAIN)
+
+
+async def test_ble_setup_needs_no_local_transport(hass, mock_ble):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="AA:BB:CC:DD:EE:FF",
+        data={"address": "AA:BB:CC:DD:EE:FF", "transport": "ble"},
+    )
+    entry.add_to_hass(hass)
+    entry._async_set_state(hass, ConfigEntryState.SETUP_IN_PROGRESS, None)
+    with (
+        patch.object(
+            hass.config_entries, "async_forward_entry_setups", new_callable=AsyncMock
+        ) as forward,
+        patch(
+            "custom_components.smart_pill_dispenser.get_transport"
+        ) as local_transport,
+    ):
+        assert await async_setup_entry(hass, entry)
+    assert set(forward.call_args.args[1]) == {"sensor", "button"}
+    local_transport.assert_not_called()
+    data = await async_get_config_entry_diagnostics(hass, entry)
+    assert data["services"][0]["uuid"] == "test"
+    assert data["protocol_status"] == "awaiting_device_profile"
+    assert data["status"]["battery"] is None
+    assert "AA:BB" not in str(data)

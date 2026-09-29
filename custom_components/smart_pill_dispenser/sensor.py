@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import PillConfigEntry
+from .ble import BLEStatus
 from .entity import PillEntity
 
 DESCRIPTIONS = (
@@ -35,12 +36,30 @@ DESCRIPTIONS = (
     ),
 )
 
+BLE_DESCRIPTIONS = (
+    SensorEntityDescription(
+        key="service_count",
+        translation_key="service_count",
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SensorEntityDescription(
+        key="protocol_status",
+        translation_key="protocol_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=["awaiting_device_profile"],
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: PillConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Add status sensors."""
-    async_add_entities(PillSensor(entry.runtime_data, desc) for desc in DESCRIPTIONS)
+    descriptions = DESCRIPTIONS
+    if isinstance(entry.runtime_data.data, BLEStatus):
+        descriptions += BLE_DESCRIPTIONS
+    async_add_entities(PillSensor(entry.runtime_data, desc) for desc in descriptions)
 
 
 class PillSensor(PillEntity, SensorEntity):

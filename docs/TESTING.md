@@ -1,12 +1,22 @@
-# Test und Inbetriebnahme
+# Tests und Geräteprüfung
 
 ## Automatische Prüfungen
 
-Die Tests verwenden Home Assistant 2026.9.4 und Python 3.14. Die Radioverbindung
-wird simuliert. Byte-Stream-Tests nutzen echte lokale Socketpaare und prüfen
-Fragmentierung, mehrere Nachrichten pro Lesezugriff, Abbruch und Rücklesen nach
-Schreibbefehlen. Home-Assistant-Tests prüfen unter anderem Einrichtung,
-Dubletten, Fehlerzustände, Wiederherstellung und datensparsame Diagnosen.
+Tests laufen mit Home Assistant 2026.9.4 und Python 3.14. Die echte HA-API wird
+verwendet; Hardware, Proxy-Verbindungsaufbau und Funkantworten werden simuliert.
+BLE-Tests prüfen insbesondere:
+
+- Auswahl eines connectable BLEDevice aus Home Assistants Bluetooth-Routing.
+- Weitergabe dieses Proxy-Geräts an Bleak statt Aufbau einer lokalen Verbindung.
+- GATT-Erfassung auch ohne standardisierte Akku-/Firmwaredienste.
+- Ausschließlich Lesen erlaubter Standard-Characteristics, keine Vendor-Writes.
+- Fehler bei passiven/unerreichbaren Proxys und Freigabe des Verbindungsplatzes
+  bei Fehlern und Abbruch.
+
+SPP-Tests nutzen lokale Socketpaare für die Verarbeitung fragmentierter und
+zusammengefasster Antworten und das Rücklesen von Einstellungsänderungen.
+HA-Tests prüfen Einrichtung, Dubletten, Fehlerzustände, Wiederherstellung und
+Diagnosen.
 
 ```sh
 .venv/bin/ruff check .
@@ -14,45 +24,43 @@ Dubletten, Fehlerzustände, Wiederherstellung und datensparsame Diagnosen.
 .venv/bin/python -m pytest -q
 ```
 
-## Was am Gerät noch zu prüfen ist
+## Nächster Schritt am echten BLE-Gerät
 
-1. Home-Assistant-Version und lokalen Adaptertyp festhalten.
-2. Spender aufwecken; PillCalendar auf dem iPhone vollständig schließen.
-3. In Home Assistant prüfen, ob ein Name beginnend mit `A1310` angezeigt wird.
-4. Einrichtung mit der zugehörigen MAC-Adresse und `hci0` bzw. dem tatsächlich
-   verwendeten lokalen Adapter versuchen.
-5. Seriennummern-/Firmware-/Akkuantworten sowie Lautstärke und Ton müssen alle
-   dem beschriebenen Format entsprechen. Die Integration erzeugt sonst keinen
-   Eintrag und zeigt einen Verbindungsfehler.
-6. Nach erfolgreicher Einrichtung Akku/Firmware mit der App vergleichen. Noch
-   nicht bestätigen lässt sich allein dadurch die Eignung als Einnahmeüberwachung.
-7. Schlafenlassen und erneutes Aufwecken testen: Sensoren sollen bei fehlender
-   Antwort nicht verfügbar werden und nach erfolgreicher Abfrage zurückkehren.
-8. Erst anschließend die deaktivierten Lautstärke-/Ton-Entitäten aktivieren und
-   eine bewusst gewählte Änderung samt Rücklesen vergleichen.
+1. Aktiven ESPHome-Bluetooth-Proxy in HA einbinden, Spender daneben aufwecken.
+2. PillCalendar auf dem iPhone vollständig schließen.
+3. Integration mit Transport **BLE / ESPHome proxy** einrichten.
+4. Bei Erfolg: die Integrationseintrags-Diagnose herunterladen und zur Analyse
+   bereitstellen. Sie listet tatsächlich entdeckte UUIDs und Eigenschaften auf.
+5. Eventuelle Standard-Akku-/Firmwarewerte mit PillCalendar vergleichen.
+6. Schlafenlassen, Aufwecken und „Aktualisieren“ ausprobieren.
 
-## Verbindungsfehler
+**Offen:** Proprietäre BLE-Service-/Characteristic-Zuordnung, Framing, mögliche
+Initialisierung/Authentifizierung und die Bestätigung von Antworten. Eine
+GATT-Liste allein kann diese Fragen noch nicht vollständig klären. Falls nötig,
+folgt danach ein gezielter Abgleich mit der iPhone-Kommunikation oder zusätzlichen
+Herstellerinformationen.
 
-- **Nur ESPHome-Proxy vorhanden:** Die aktuelle Implementierung braucht einen
-  lokalen Classic-Adapter; ein BLE-Proxy transportiert kein RFCOMM.
-- **`UnknownObject` bei ConnectProfile:** Die Geräteadresse ist auf diesem
-  lokalen BlueZ-Adapter noch nicht bekannt oder der Adaptername ist falsch.
-  Die lokale Bluetooth-Erkennung muss den wachen Spender zuerst sehen.
-- **`NotAvailable` / `Failed`:** Gerät schläft, ist anderweitig verbunden oder
-  bietet auf dieser Firmware kein nutzbares SPP an. Der Fehler allein beweist
-  keine bestimmte Ursache.
-- **`AlreadyExists` bei RegisterProfile:** Ein anderer Dienst kann SPP bereits
-  registriert haben. Die Integration entfernt keine fremden Profile.
-- **Kein System-D-Bus / Berechtigungsfehler:** BlueZ-Zugriff der HA-Installation
-  gemäß offizieller Bluetooth-Anleitung prüfen.
-- **Protokollfehler:** Antwortformat dieser Firmware weicht möglicherweise von
-  der analysierten App ab. Keine Alarm-/Ausgabebefehle ausprobieren.
+## BLE-Fehler
 
-Für die nächste Untersuchung genügen zunächst HA-Version, Adaptertyp,
-Bluetooth-Name, Firmware (falls bekannt) und Fehlermeldung. Mit einem iPhone
-können zusätzlich sichtbare GATT-Dienste untersucht werden, falls SPP nicht
-funktioniert. Erst anhand der tatsächlichen UUIDs und Eigenschaften wird ein
-alternativer BLE-Transport entworfen.
+- **Kein aktiver Proxy erreicht das Gerät:** `bluetooth_proxy.active: true`,
+  Erreichbarkeit, ESPHome-API und freien Verbindungsplatz prüfen. Die Adresse
+  muss die MAC-Adresse aus HA sein, keine iOS-CoreBluetooth-UUID.
+- **Verbindung fehlgeschlagen:** Gerät aufwecken und die iPhone-App schließen;
+  Proxy in die Nähe stellen. Eine sichtbare BLE-Werbung allein garantiert noch
+  keine funktionierende GATT-Verbindung.
+- **Akku/Firmware unbekannt, BLE-Dienste vorhanden:** Das Gerät bietet womöglich
+  nur proprietäre Dienste. Diagnose exportieren; es werden keine Werte erfunden.
+- **Gerät schläft:** Vor der manuellen Aktualisierung am Gerät aufwecken.
 
-Diagnosen lassen MAC-Adresse und Seriennummer weg. Allgemeine HA-Protokolle
-können diese Kennungen trotzdem enthalten; vor öffentlichem Teilen prüfen.
+## Optionaler lokaler SPP-Pfad
+
+Nur für Linux mit lokalem Classic-Adapter. Bei `UnknownObject` ist die Adresse
+auf dem gewählten BlueZ-Adapter noch nicht bekannt oder der Adaptername ist
+falsch. `NotAvailable`/`Failed` kann auf Schlafzustand, eine andere Verbindung
+oder fehlendes SPP hinweisen. `AlreadyExists` bei RegisterProfile kann einen
+Konflikt mit einem anderen SPP-Client bedeuten; fremde Profile werden nicht
+entfernt. D-Bus-Zugriff gemäß offizieller HA-Bluetooth-Anleitung prüfen.
+
+Allgemeine HA-Protokolle können Gerätekennungen enthalten; vor öffentlichem
+Teilen prüfen. Der integrationseigene Diagnoseexport enthält keine MAC-Adresse
+oder Seriennummer.

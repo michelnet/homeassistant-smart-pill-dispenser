@@ -1,6 +1,9 @@
 """Constants for the experimental A1310 integration."""
 
 DOMAIN = "smart_pill_dispenser"
+CONF_TRANSPORT = "transport"
+TRANSPORT_BLE = "ble"
+TRANSPORT_SPP = "spp"
 CONF_ADAPTER = "adapter"
 DEFAULT_ADAPTER = "hci0"
 SPP_UUID = "00001101-0000-1000-8000-00805f9b34fb"

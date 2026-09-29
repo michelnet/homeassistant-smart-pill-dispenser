@@ -4,17 +4,26 @@
     "flow_title": "{name}",
     "step": {
       "user": {
-        "title": "Connect A1310 (experimental)",
-        "description": "Wake the dispenser and close PillCalendar on your phone. This experimental integration uses a local Linux Bluetooth Classic adapter (SPP), not an ESPHome BLE proxy. Hardware compatibility is not yet verified. Enter the address shown in Home Assistant Bluetooth discovery.",
+        "title": "Connect A1310 via Bluetooth",
+        "description": "Wake the dispenser and close PillCalendar on your phone. BLE uses your active ESPHome Bluetooth proxy. This initial BLE version discovers services and reads standard values if available. The proprietary BLE functions are not decoded yet; download diagnostics after setup.",
         "data": {
           "address": "Bluetooth address",
+          "transport": "Connection"
+        }
+      },
+      "classic": {
+        "title": "Select local Classic adapter",
+        "description": "Wake the dispenser and close PillCalendar on your phone. This experimental integration uses a local Linux Bluetooth Classic adapter (SPP), not an ESPHome BLE proxy. Hardware compatibility is not yet verified. Enter the address shown in Home Assistant Bluetooth discovery.",
+        "data": {
           "adapter": "Local adapter (for example hci0)"
         }
       }
     },
     "error": {
       "invalid_address": "Enter a Bluetooth MAC address (AA:BB:CC:DD:EE:FF) and adapter such as hci0.",
-      "cannot_connect": "No valid A1310 response. Wake the device, close PillCalendar and verify the local Bluetooth Classic adapter and system D-Bus. BLE-only proxies do not support SPP."
+      "cannot_connect": "No valid A1310 response. Wake the device, close PillCalendar and verify the local Bluetooth Classic adapter and system D-Bus. BLE-only proxies do not support SPP.",
+      "cannot_connect_ble": "BLE connection failed. Wake the dispenser, close PillCalendar and check the active proxy has a free connection slot.",
+      "no_connectable_device": "No active proxy can reach this device. Enable bluetooth_proxy.active in ESPHome and wake the dispenser within range."
     },
     "abort": {
       "already_configured": "This dispenser is already configured.",
@@ -32,6 +41,15 @@
       },
       "last_success": {
         "name": "Last successful update"
+      },
+      "service_count": {
+        "name": "BLE services"
+      },
+      "protocol_status": {
+        "name": "BLE protocol",
+        "state": {
+          "awaiting_device_profile": "Device profile awaiting verification"
+        }
       }
     },
     "number": {

@@ -49,7 +49,7 @@ def test_unknown_frame_fails_closed():
 
 def test_status_validation():
     replies = {
-        4: b"A1310TEST0000001",
+        4: b"A1310TEST000001",
         6: b"\x01\x02\x03",
         8: b"\xaa\xbbK",
         10: b"\x02",

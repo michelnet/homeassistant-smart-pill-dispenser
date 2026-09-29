@@ -18,7 +18,27 @@ Zusammenfassung der relevanten Codepfade, kein veröffentlichtes Hersteller-SDK.
 Die Hashprüfung identifiziert den analysierten Download; sie ist keine unabhängige
 Prüfung der Hersteller-Signatur. Hardwareaufzeichnungen liegen noch nicht vor.
 
-## Transport
+## BLE über ESPHome-Proxy
+
+Der BLE-Pfad verwendet `bluetooth.async_ble_device_from_address(...,
+connectable=True)` und `bleak_retry_connector.establish_connection`. Der
+BLEDevice stammt aus HA und kann damit zu einem ESPHome-Proxy gehören. Es
+wird kein eigener Scanner gestartet und kein lokaler Adapter vorausgesetzt.
+
+Derzeit werden ausschließlich GATT-Metadaten erfasst und die optionalen
+Bluetooth-SIG-Characteristics Battery Level (`180f` / `2a19`) sowie Firmware
+Revision (`180a` / `2a26`) gelesen. Sie werden nur innerhalb des jeweiligen
+Standarddienstes gelesen. Keine Hersteller-Characteristic wird probeweise
+beschrieben oder abonniert. Fehlende Standardwerte bleiben unbekannt.
+
+Die Hersteller-UUIDs und das BLE-Framing des A1310 sind nicht bestätigt.
+Die SPP-Analyse unten darf nicht mit einem bestätigten BLE-Profil verwechselt
+werden. Die Diagnose des echten Geräts ist der nächste notwendige Nachweis.
+
+Referenzen: [ESPHome Proxy](https://esphome.io/components/bluetooth_proxy/),
+[Bleak API](https://bleak.readthedocs.io/en/latest/api/client.html).
+
+## Optionaler SPP-Transport
 
 `PillBoxName.BOX_NAME_A1310` enthält `A1310`. Der Gerätemanager `e8.c`
 scannt BLE-Namen und filtert auf die Modellnamen. `PillBox.createConnector`
@@ -43,7 +63,7 @@ Referenzen:
 ## Implementierte Befehle
 
 Quelle: `com.quin.bluetoothlib.device.A1310Box` und die Konstanten / der Parser
-in `e8.f`. Hexadezimale Darstellung; Antwortlängen ohne den dreiby­tigen Header.
+in `e8.f`. Hexadezimale Darstellung; Antwortlängen ohne den dreibytigen Header.
 
 | Zweck | Anfrage | Antwortheader | Nutzdaten |
 | --- | --- | --- | --- |
@@ -78,8 +98,8 @@ Abfrage für einen vollständigen aktuellen Ladestatus.
 - Die Zuordnung zum A1310 stammt aus dem BLE-Namen bzw. der manuellen Auswahl.
   Das Protokoll besitzt hier keine ausgelesene Modellkennung.
 - iOS-GATT-UUIDs, abweichende Firmware, Schlafverhalten und die Antwort des eigenen
-  Geräts sind noch offen. Falls dieses Gerät SPP nicht anbietet, ist ein zusätzlicher
-  BLE-Transport erforderlich; dieser ist nicht implementiert.
+  Geräts sind noch offen. Falls dieses Gerät SPP nicht anbietet, ist die Entschlüsselung des proprietären
+  BLE-Profils erforderlich; der vorhandene BLE-Pfad erfasst hierfür die Dienste.
 - Die in der App ebenfalls vorhandene Alarmprogrammierung wird nicht genutzt,
   solange Slotanzahl, Datumssemantik und Auswirkungen am Gerät unbestätigt sind.
 

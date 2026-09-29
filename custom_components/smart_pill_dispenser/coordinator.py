@@ -10,6 +10,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from .ble import A1310BLEClient, BLEStatus
 from .client import A1310Client
 from .const import DOMAIN
 from .protocol import ProtocolError, Status
@@ -19,11 +20,14 @@ _LOGGER = logging.getLogger(__name__)
 DEVICE_ERRORS = (TransportError, ProtocolError, TimeoutError, OSError)
 
 
-class PillCoordinator(DataUpdateCoordinator[Status]):
+class PillCoordinator(DataUpdateCoordinator[Status | BLEStatus]):
     """A successful poll represents a fresh snapshot, never assumed ingestion."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, client: A1310Client
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        client: A1310Client | A1310BLEClient,
     ) -> None:
         super().__init__(
             hass,
@@ -36,7 +40,7 @@ class PillCoordinator(DataUpdateCoordinator[Status]):
         self.last_success = None
         self._transaction_lock = asyncio.Lock()
 
-    async def _async_update_data(self) -> Status:
+    async def _async_update_data(self) -> Status | BLEStatus:
         async with self._transaction_lock:
             try:
                 status = await self.client.read_status()
