@@ -8,8 +8,10 @@ from bleak.exc import BleakError
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from homeassistant.components import bluetooth
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
-from .ble_protocol import query_a1310
+from .ble_protocol import find_endpoints, query_a1310
+from .schedule import encode_schedule, validate_times
 from .transport import TransportError
 
 BATTERY_SERVICE = "0000180f-0000-1000-8000-00805f9b34fb"
@@ -48,6 +50,48 @@ class A1310BLEClient:
         self.hass = hass
         self.address = address
         self._lock = asyncio.Lock()
+
+    async def program_schedule(self, times: list[str]) -> None:
+        """Send one replacement plan, without retries or claiming device readback."""
+        times = validate_times(times)
+        async with self._lock:
+            device = bluetooth.async_ble_device_from_address(
+                self.hass, self.address, connectable=True
+            )
+            if device is None:
+                raise NoConnectableDevice("No active proxy can reach the dispenser")
+            client = None
+            try:
+                async with asyncio.timeout(45):
+                    client = await establish_connection(
+                        BleakClientWithServiceCache,
+                        device,
+                        "Smart Pill Dispenser A1310",
+                        max_attempts=2,
+                    )
+                    endpoints = find_endpoints(client.services)
+                    if endpoints is None or "write" not in endpoints[0].properties:
+                        raise TransportError("No confirmed-write A1310 BLE endpoint")
+                    status = await query_a1310(client)
+                    if status.state != "readings_received":
+                        raise TransportError("Device did not answer the status check")
+                    zone = dt_util.get_time_zone(self.hass.config.time_zone)
+                    commands = encode_schedule(times, dt_util.now(zone))
+                    for command in commands:
+                        await asyncio.sleep(0.05)
+                        async with asyncio.timeout(5):
+                            await client.write_gatt_char(
+                                endpoints[0], command, response=True
+                            )
+            except (BleakError, OSError, TimeoutError) as err:
+                raise TransportError(
+                    "Schedule transfer failed; the device may contain a partial plan"
+                ) from err
+            finally:
+                if client is not None:
+                    with suppress(BleakError, OSError, TimeoutError):
+                        async with asyncio.timeout(10):
+                            await client.disconnect()
 
     async def read_status(self, **settings) -> BLEStatus:
         """Enumerate GATT and read standards, then release the proxy slot."""

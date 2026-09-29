@@ -4,14 +4,18 @@ Experimentelle Custom Integration für **Quin A1310 / Artikel A1310-WHBL-1**,
 verwendet mit **PillCalendar**. **ESPHome-Bluetooth-Proxys sind als BLE-Anbindung
 implementiert. Ein lokaler Bluetooth-Adapter ist dafür nicht nötig.**
 
-**Stand 0.1.1:** Verbindung und GATT-Dienste wurden durch eine Gerätediagnose
-bestätigt. Der Spender bietet `FF00` mit Schreib-Characteristic `FF02` und
-Notify-Characteristic `FF03`, aber keine Standard-Akku-/Firmwaredienste.
+**Stand 0.2.0:** Firmware und Akku funktionieren am getesteten A1310 sowohl
+direkt über BLE als auch – vom Benutzer bestätigt – über den ESPHome-Proxy.
+Neu sind eine experimentelle Übertragung täglicher Alarmzeiten und ein
+manuelles Einnahmeprotokoll in Home Assistant.
 
-Die Integration sendet nun gezielt die aus der Android-App abgeleiteten
-Firmware- und Akkuabfragen über `FF02` und empfängt Antworten auf `FF03`.
-**Firmware- und Akkuabfrage wurden direkt am Gerät über BLE bestätigt: Firmware 2.0.0, Akku 95 %.**
-Die erweiterte Statusabfrage über den ESPHome-Proxy muss noch in Home Assistant getestet werden. Alarmpläne und Ausgabe sind nicht implementiert.
+| Funktion | Stand |
+| --- | --- |
+| Firmware / Akku | Am Gerät und über HA-Proxy bestätigt |
+| Bis zu sechs tägliche Alarmzeiten | Implementiert; aus der App abgeleitet, Geräteprüfung noch offen |
+| Einnahmestatus | Manuelle Angabe in HA, keine automatische Erkennung |
+| Zeitgesteuerte Ausgabe | Wird vom Gerät anhand seines Alarmplans ausgeführt; neue Alarmübertragung noch unbestätigt |
+| Sofortige Ausgabe per HA-Button | Nicht verfügbar: kein belegter BLE-Befehl gefunden |
 
 ## BLE-Funktionen
 
@@ -21,10 +25,12 @@ Die erweiterte Statusabfrage über den ESPHome-Proxy muss noch in Home Assistant
 - Fallback auf standardisierte Akku-/Firmwaredienste, falls vorhanden.
 - Diagnose mit Abfragebytes, Antwortanzahl, Byteanzahl und Fehlerstatus.
 - Aktualisierung alle fünf Minuten sowie manuell per Button.
+- Explizite Aktion zum Ersetzen der sechs täglichen Alarmplätze.
+- Manuelle Einnahmebestätigung und persistente Anzeige des letzten Eintrags.
 
-Die BLE-Anfragen ändern nach dem bekannten App-Protokoll weder Einstellungen
-noch Alarmpläne oder Uhrzeit. Lautstärke, Klingelton und Pillenausgabe bleiben
-über BLE nicht implementiert. Fremde GATT-Dienste werden nicht beschrieben.
+Die regelmäßigen Statusabfragen ändern keine Einstellungen. Nur die explizite
+Aktion `set_schedule` schreibt Uhrzeit und Alarmplan. Lautstärke, Klingelton
+und sofortige Pillenausgabe sind über BLE nicht implementiert.
 
 ## Einrichtung mit ESPHome-Proxy und iPhone
 
@@ -67,6 +73,75 @@ Der Spender stellt möglicherweise nur herstellerspezifische GATT-Dienste bereit
 Der Sensor „BLE-Protokoll“ unterscheidet empfangene Werte, fehlende Antworten
 und unerwartete Antwortformate. Nach einem erfolglosen Abfragezyklus bleiben
 die betroffenen Werte unbekannt; alte Werte werden nicht als frisch ausgegeben.
+
+## Tägliche Alarmzeiten und geplante Ausgabe
+
+Unter **Entwicklerwerkzeuge → Aktionen → Smart Pill Dispenser: Täglichen
+Geräteplan ersetzen** den Integrationseintrag auswählen und eine Liste der
+gewünschten täglichen Zeiten eingeben. Der Spender muss wach und erreichbar sein.
+PillCalendar vorher schließen.
+
+```yaml
+action: smart_pill_dispenser.set_schedule
+data:
+  entry_id: DEINE_INTEGRATIONSEINTRAGS_ID
+  times:
+    - "08:00"
+    - "12:00"
+    - "18:00"
+```
+
+Der Aufruf **ersetzt alle sechs Alarmplätze**, sortiert die Zeiten und deaktiviert
+nicht benötigte Plätze. `times: []` deaktiviert sämtliche Alarme. Die Zeiten
+gelten täglich in der unter HA konfigurierten Zeitzone. Es werden keine Dosen,
+Medikamente oder Wochentagsregeln berechnet. Diese Gerätealarme können die
+geplante Ausgabe auslösen; bestehende App-Zeiten werden überschrieben.
+
+Die Geräteuhr wird bei diesem Aufruf synchronisiert. Nach Zeitumstellungen oder
+einem Zeitzonenwechsel muss der Plan ausdrücklich erneut übertragen werden;
+eine automatische Uhrzeitänderung oder Wiederholung findet nicht statt.
+
+Der Sensor **Alarmplan-Übertragung** zeigt nach erfolgreichem BLE-Schreiben
+**„Gesendet, am Gerät unbestätigt“**. Seine Attribute enthalten die angeforderten
+Zeiten, Zeitzone und den Sendezeitpunkt. Das ist kein ausgelesener Geräteplan:
+Die untersuchte App enthält weder eine Alarmabfrage noch eine auswertbare
+Bestätigung für diese Befehle. Änderungen durch PillCalendar werden in HA
+nicht erkannt. Die Wirkung der neuen Alarmbefehle muss noch am Gerät geprüft
+werden, zunächst mit leerem Spender.
+
+Bei Abbruch kann der Geräteplan teilweise geändert sein. HA speichert diesen
+Fehlerzustand und sendet beim nächsten Start oder Polling nichts erneut.
+Die Aktion meldet einen Fehler; den vollständigen Plan nach Prüfung bewusst
+erneut übertragen. Ein Status „In HA nicht konfiguriert“ sagt nichts darüber
+aus, welche Alarme bereits auf dem Spender gespeichert sind.
+
+Ein separater Befehl für eine **sofortige Ausgabe** ist in der untersuchten
+A1310-App-Schnittstelle nicht vorhanden. Es wird dafür kein Alarm auf „jetzt“
+umgeschrieben und kein unbestätigter Motorbefehl gesendet.
+
+## Einnahme manuell protokollieren
+
+Der Button **Einnahme manuell bestätigen** speichert „eingenommen“ mit dem
+aktuellen Zeitpunkt in HA. Über die folgende Aktion lässt sich auch eine
+übersprungene Einnahme protokollieren:
+
+```yaml
+action: smart_pill_dispenser.record_intake
+data:
+  entry_id: DEINE_INTEGRATIONSEINTRAGS_ID
+  status: skipped  # alternativ: taken
+```
+
+**Letzter manueller Einnahmestatus** und **Letzte manuelle Protokollierung**
+zeigen den letzten Eintrag, auch nach einem HA-Neustart. Es handelt sich nicht
+um einen automatisch erkannten Tages- oder Dosisstatus. Ein Alarm, eine Ausgabe
+oder eine Bluetooth-Verbindung bestätigt keine Einnahme.
+
+Für Automationen wird `smart_pill_dispenser_intake_recorded` mit `entry_id`,
+`status`, `recorded_at` und `source: manual` ausgelöst. Ältere Sensorzustände
+können über den HA-Recorder aufbewahrt werden; die Integration selbst speichert
+nur den letzten Eintrag. Es gibt keine Synchronisierung mit der PillCalendar-App.
+Der Diagnoseexport enthält weder Alarmzeiten noch Einnahmezeitpunkte.
 
 ## Direkt auf diesem Mac diagnostizieren
 
@@ -131,6 +206,6 @@ python3.14 -m venv .venv
 ```
 
 Tests nutzen simulierte Antworten und einen Regressionstest mit tatsächlich
-aufgezeichneten Firmware-/Akkuantworten. Eine gesamte HA-/Proxy-Prüfung bleibt
-zusätzlich nötig.
+aufgezeichneten Firmware-/Akkuantworten. Die neue Alarmprogrammierung ist noch
+nicht am Gerät verifiziert; die Statusabfrage über HA-/Proxy wurde bestätigt.
 Die APK und dekompilierter Herstellercode sind nicht Teil des Repositorys.

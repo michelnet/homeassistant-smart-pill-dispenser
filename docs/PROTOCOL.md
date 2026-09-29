@@ -57,9 +57,10 @@ Sie wird als Regressionstest abgespielt, inklusive Transportmeldungen.
 Nur eigenständige Transportmeldungen **zwischen** Anwendungsframes werden
 übersprungen, nicht identische Bytes innerhalb fragmentierter Firmwarewerte.
 
-Die Statusabfragen sind damit auf diesem Gerät lokal bestätigt. Das komplette
-HA-/ESPHome-Proxy-Zusammenspiel mit der neuen Abfragelogik ist noch zu prüfen.
-Es werden keine Initialisierungs-, Alarm-, Uhrzeit- oder Ausgabebefehle gesendet.
+Die Statusabfragen sind auf diesem Gerät lokal bestätigt. Anschließend hat der
+Benutzer auch korrekte Firmware und angezeigten Akku in HA über den ESPHome-Proxy
+bestätigt. Reguläres Polling sendet weiterhin nur Statusabfragen. Ab 0.2.0 kann
+die explizite Aktion `set_schedule` zusätzlich Uhrzeit und Alarmplan schreiben.
 Diagnosen enthalten Anzahl/Byteanzahl und Anzahl der Transportmeldungen,
 Abfragebytes, validierte Werte und Fehlercodes. `ff01` wird nicht interpretiert.
 
@@ -115,6 +116,55 @@ Bekannte spontane Lade-/Batterieereignisse werden beim Lesen konsumiert, aber
 nicht als dauerhafter Zustand dargestellt: es gibt bisher keine gesicherte
 Abfrage für einen vollständigen aktuellen Ladestatus.
 
+## Alarmprogrammierung ab 0.2.0
+
+Zusätzliche statische Nachweise aus derselben APK:
+
+- `g9.c.c`: vor dem Alarmtransfer `syncBoxTime(true, true)`; für A1310 wird die
+  Liste mit `TimeSetupModel.createEmptyTimeSetupModel()` auf sechs Plätze gefüllt.
+- `A1310Box.setBoxAlarmClock`: Plätze ab 1, Aufruf `e8.f.d(slot, false, model)`.
+- `e8.f.d`: der zweite Parameter `false` erzwingt tägliche Wiederholung `01`.
+- `e8.f.a(true)` und `e8.f.b()` liefern Uhrzeitformat und lokale Uhrzeit.
+
+| Zweck | Bytes |
+| --- | --- |
+| Uhrzeitformat wie im App-Aufruf | `23 53 02 00` |
+| Geräteuhr | `23 53 01 YY MM DD hh mm ss` (Jahr minus 2000) |
+| Täglicher aktiver Alarm | `23 53 03 SLOT 01 01 YY MM DD hh mm 00` |
+| Deaktivierter Alarm | `23 53 03 SLOT 00 01 01 01 01 01 01 00` |
+
+Slots 1–6 werden vollständig geschrieben. Aktive Zeiten sind chronologisch
+sortiert. Nicht verwendete Plätze werden entsprechend dem App-Encoder deaktiviert.
+Datum/Uhrzeit stammen aus der HA-Zeitzone. Vor jeder Übertragung werden Firmware
+und Akku abgefragt, anschließend erfolgen einmalige Schreibvorgänge mit GATT-
+Bestätigung und mindestens 50 ms Abstand. Es gibt keine automatischen Retries
+von Schreibbefehlen und keinen automatischen Transfer beim Start oder Polling.
+
+**Diese Alarmbefehle sind noch nicht am echten Gerät bestätigt.** Der App-Parser
+`e8.f.c` verarbeitet keine Bestätigung zu `&S01`, `&S02` oder `&S03`, und die
+A1310-Schnittstelle enthält keine Alarmabfrage. GATT-Schreiberfolg wird daher
+als `sent_unverified` angezeigt. Ein Fehler oder Abbruch lässt den tatsächlichen
+Geräteplan unklar; der Zustand wird über Neustarts hinweg gespeichert.
+
+## Einnahme und sofortige Ausgabe
+
+Die vollständige `A1310Box`-/`PillBox`-Methodenliste und der Antwortparser liefern
+keinen belegten Einnahme-/Entnahmestatus und keinen Sofortausgabebefehl. Die App
+enthält dagegen `AppMainApi.settingTakeMedicineType` sowie
+`UserTakeMedicineConfigBean.isManualMarking` für ihre Einnahmeverwaltung.
+Das beweist nicht, dass die Firmware keine weiteren Befehle kennt; es liefert
+aber keine Grundlage für deren Implementierung.
+
+Der Benutzer bestätigt für die iPhone-App: keine Schaltfläche zur Sofortausgabe;
+Ausgabe erfolgt am Gerät oder nach Zeitplan. Die geplante Ausgabe wird deshalb
+über die Alarmprogrammierung abgedeckt, ohne einen Sofortbefehl zu erfinden.
+
+Die HA-Funktion `record_intake` speichert deshalb ausschließlich manuelle Angaben
+lokal und löst ein entsprechend gekennzeichnetes Ereignis aus. Es werden keine
+BLE-Ereignisse als Einnahme interpretiert. Für eine sofortige Ausgabe bleibt ein
+belegter Gerätebefehl erforderlich. Geplante Ausgabe bleibt ein Geräteablauf,
+der durch die Alarmzeiten gesteuert wird, kein von HA beobachteter Erfolg.
+
 ## Bewusste Grenzen
 
 - Unbekannte Antwortheader brechen die Sitzung ab. Ohne verlässliche Länge lässt
@@ -125,11 +175,10 @@ Abfrage für einen vollständigen aktuellen Ladestatus.
   Schreiben. Eine Änderung kann am Gerät schon angekommen sein.
 - Die Zuordnung zum A1310 stammt aus dem BLE-Namen bzw. der manuellen Auswahl.
   Das Protokoll besitzt hier keine ausgelesene Modellkennung.
-- iOS-GATT-UUIDs, abweichende Firmware, Schlafverhalten und die Antwort des eigenen
-  Geräts sind noch offen. Falls dieses Gerät SPP nicht anbietet, ist die Entschlüsselung des proprietären
-  BLE-Profils erforderlich; der vorhandene BLE-Pfad erfasst hierfür die Dienste.
-- Die in der App ebenfalls vorhandene Alarmprogrammierung wird nicht genutzt,
-  solange Slotanzahl, Datumssemantik und Auswirkungen am Gerät unbestätigt sind.
+- Abweichende Firmware und Schlafverhalten sind nur begrenzt untersucht.
+- Der Alarmplan ist aus dem App-Code abgeleitet; Gerätewirkung und Verhalten
+  nach Zeitumstellungen sind noch zu prüfen. Wochentags- und Einmalalarme werden
+  nicht angeboten, da A1310Box im untersuchten Pfad tägliche Wiederholung erzwingt.
 
 Die meisten Tests verwenden synthetische, aus der App abgeleitete Bytefolgen.
 Der BLE-Regressionstest verwendet zusätzlich die oben dokumentierte echte

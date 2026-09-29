@@ -1,0 +1,27 @@
+set_schedule:
+  fields:
+    entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: smart_pill_dispenser
+    times:
+      required: true
+      example: '["08:00", "12:00", "18:00"]'
+      selector:
+        object:
+record_intake:
+  fields:
+    entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: smart_pill_dispenser
+    status:
+      required: true
+      selector:
+        select:
+          translation_key: intake_status
+          options:
+            - taken
+            - skipped

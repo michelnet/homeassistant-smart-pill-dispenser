@@ -55,6 +55,27 @@
           "unexpected_response": "Unerwartetes Antwortformat",
           "communication_error": "Kommunikationsfehler"
         }
+      },
+      "intake_status": {
+        "name": "Letzter manueller Einnahmestatus",
+        "state": {
+          "not_recorded": "Nicht protokolliert",
+          "taken": "Eingenommen (manuell)",
+          "skipped": "Übersprungen (manuell)"
+        }
+      },
+      "last_intake_record": {
+        "name": "Letzte manuelle Protokollierung"
+      },
+      "schedule_status": {
+        "name": "Alarmplan-Übertragung",
+        "state": {
+          "not_configured": "In HA nicht konfiguriert",
+          "transferring": "Wird übertragen",
+          "sent_unverified": "Gesendet, am Gerät unbestätigt",
+          "transfer_failed": "Fehlgeschlagen, Geräteplan unklar",
+          "transfer_interrupted": "Unterbrochen, Geräteplan unklar"
+        }
       }
     },
     "number": {
@@ -76,6 +97,45 @@
     "button": {
       "refresh": {
         "name": "Aktualisieren"
+      },
+      "record_intake": {
+        "name": "Einnahme manuell bestätigen"
+      }
+    }
+  },
+  "services": {
+    "set_schedule": {
+      "name": "Täglichen Geräteplan ersetzen",
+      "description": "Ersetzt alle sechs Alarmplätze und stellt die Geräteuhr auf die HA-Zeitzone. Diese Zeiten steuern den Geräteablauf einschließlich geplanter Ausgabe. Experimentell: Der Geräteplan kann nicht zurückgelesen werden. Nicht aufgeführte Plätze werden deaktiviert; eine leere Liste deaktiviert alle Alarme.",
+      "fields": {
+        "entry_id": {
+          "name": "Integrationseintrag"
+        },
+        "times": {
+          "name": "Tägliche Zeiten",
+          "description": "Liste mit maximal sechs verschiedenen Zeiten im Format HH:MM, z. B. [\"08:00\", \"18:00\"]."
+        }
+      }
+    },
+    "record_intake": {
+      "name": "Einnahme manuell protokollieren",
+      "description": "Speichert deine Angabe in HA. Löst keine Ausgabe aus und bestätigt keine vom Gerät erkannte Einnahme.",
+      "fields": {
+        "entry_id": {
+          "name": "Integrationseintrag"
+        },
+        "status": {
+          "name": "Status",
+          "description": "Deine manuelle Angabe zur Einnahme."
+        }
+      }
+    }
+  },
+  "selector": {
+    "intake_status": {
+      "options": {
+        "taken": "Eingenommen",
+        "skipped": "Übersprungen"
       }
     }
   }

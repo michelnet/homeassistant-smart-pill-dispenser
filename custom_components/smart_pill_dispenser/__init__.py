@@ -5,17 +5,25 @@ import asyncio
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.storage import Store
 
 from .ble import A1310BLEClient
 from .client import A1310Client
 from .const import CONF_ADAPTER, CONF_TRANSPORT, DOMAIN, TRANSPORT_BLE
 from .coordinator import PillCoordinator
+from .services import async_register_services
 from .transport import BlueZTransport
 
 type PillConfigEntry = ConfigEntry[PillCoordinator]
 
 BLE_PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
 SPP_PLATFORMS = [*BLE_PLATFORMS, Platform.NUMBER, Platform.SELECT]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Make actions available independently of device connectivity."""
+    async_register_services(hass)
+    return True
 
 
 def platforms(entry: ConfigEntry) -> list[Platform]:
@@ -44,6 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PillConfigEntry) -> bool
             get_transport(hass), entry.data[CONF_ADDRESS], entry.data[CONF_ADAPTER]
         )
     coordinator = PillCoordinator(hass, entry, client)
+    await coordinator.async_load_local_state()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, platforms(entry))
@@ -53,3 +62,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: PillConfigEntry) -> bool
 async def async_unload_entry(hass: HomeAssistant, entry: PillConfigEntry) -> bool:
     """Unload entities; each transaction owns and closes its connection."""
     return await hass.config_entries.async_unload_platforms(entry, platforms(entry))
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete local schedule and intake records when removing the integration."""
+    await Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.local").async_remove()

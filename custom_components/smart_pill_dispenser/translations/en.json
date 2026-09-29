@@ -55,6 +55,27 @@
           "unexpected_response": "Unexpected response format",
           "communication_error": "Communication error"
         }
+      },
+      "intake_status": {
+        "name": "Last manual intake status",
+        "state": {
+          "not_recorded": "Not recorded",
+          "taken": "Taken (manual)",
+          "skipped": "Skipped (manual)"
+        }
+      },
+      "last_intake_record": {
+        "name": "Last manual record"
+      },
+      "schedule_status": {
+        "name": "Schedule transfer",
+        "state": {
+          "not_configured": "Not configured in HA",
+          "transferring": "Transferring",
+          "sent_unverified": "Sent, unconfirmed on device",
+          "transfer_failed": "Failed, device plan uncertain",
+          "transfer_interrupted": "Interrupted, device plan uncertain"
+        }
       }
     },
     "number": {
@@ -76,6 +97,45 @@
     "button": {
       "refresh": {
         "name": "Refresh"
+      },
+      "record_intake": {
+        "name": "Manually confirm intake"
+      }
+    }
+  },
+  "services": {
+    "set_schedule": {
+      "name": "Replace daily device schedule",
+      "description": "Replaces all six alarm slots and sets the device clock to the HA timezone. These times control device operation including scheduled dispensing. Experimental: the device schedule cannot be read back. Unused slots are disabled; an empty list disables every alarm.",
+      "fields": {
+        "entry_id": {
+          "name": "Integration entry"
+        },
+        "times": {
+          "name": "Daily times",
+          "description": "List of up to six distinct HH:MM times, for example [\"08:00\", \"18:00\"]."
+        }
+      }
+    },
+    "record_intake": {
+      "name": "Record intake manually",
+      "description": "Stores your input in HA. Does not dispense pills or confirm a device-detected intake.",
+      "fields": {
+        "entry_id": {
+          "name": "Integration entry"
+        },
+        "status": {
+          "name": "Status",
+          "description": "Your manual intake record."
+        }
+      }
+    }
+  },
+  "selector": {
+    "intake_status": {
+      "options": {
+        "taken": "Taken",
+        "skipped": "Skipped"
       }
     }
   }

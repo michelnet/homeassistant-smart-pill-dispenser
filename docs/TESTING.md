@@ -9,7 +9,7 @@ BLE-Tests prüfen insbesondere:
 - Auswahl eines connectable BLEDevice aus Home Assistants Bluetooth-Routing.
 - Weitergabe dieses Proxy-Geräts an Bleak statt Aufbau einer lokalen Verbindung.
 - GATT-Erfassung auch ohne standardisierte Akku-/Firmwaredienste.
-- Ausschließlich Firmware-/Akkuanfragen auf dem beobachteten FF00-Profil;
+- Im regulären Polling ausschließlich Firmware-/Akkuanfragen auf dem FF00-Profil;
   keine Einstellungsbefehle oder Zugriffe auf fremde Schreib-Characteristics.
 - Wiedergabe realer A1310-Antworten inklusive Transportnachrichten 0101/02b600.
 - Fehler bei passiven/unerreichbaren Proxys und Freigabe des Verbindungsplatzes
@@ -19,6 +19,12 @@ SPP-Tests nutzen lokale Socketpaare für die Verarbeitung fragmentierter und
 zusammengefasster Antworten und das Rücklesen von Einstellungsänderungen.
 HA-Tests prüfen Einrichtung, Dubletten, Fehlerzustände, Wiederherstellung und
 Diagnosen.
+
+Ab 0.2.0 prüfen zusätzliche Tests die vollständige Sechs-Platz-Kodierung,
+Deaktivierung ungenutzter Plätze, Eingabeprüfung vor Verbindungsaufbau,
+Übertragung über HA-Proxy-Routing, Abbruch ohne Wiederholung und Freigabe des
+Proxy-Platzes. HA-Tests prüfen persistente Fehlerzustände, manuelle Einnahmen,
+Aktionen und tatsächliche Entitätsregistrierung einschließlich Reload.
 
 ```sh
 .venv/bin/ruff check .
@@ -42,9 +48,27 @@ Mit `scripts/ble_probe.py --query --capture` wurden Firmware **2.0.0** und
 Akku **95 %** empfangen. Die Transportmeldungen wurden von den eigentlichen
 Geräteantworten getrennt. Die nachgestellten Tests enthalten diese Aufzeichnung.
 
-**Noch offen:** Statusabfragen nach Installation von 0.1.1 über den ESPHome-Proxy,
-andere Firmwarevarianten und weitere Spenderfunktionen. Der direkte Mac-Test
-bestätigt diese zusätzlichen Punkte nicht automatisch.
+Der Benutzer hat anschließend korrekte Firmware und angezeigten Akku auch in
+Home Assistant über den ESPHome-Proxy bestätigt.
+
+**Noch offen:** Alarmprogrammierung aus 0.2.0 und andere Firmwarevarianten.
+Automatische Einnahmeerkennung und sofortige Ausgabe sind nicht implementiert,
+da dafür kein Protokollnachweis vorliegt.
+
+## Neue Alarmfunktion am Gerät prüfen
+
+Die Entwicklungstests ändern keine realen Alarmzeiten. Für die erste Prüfung
+einen **leeren Spender** verwenden: Ein Alarm kann die Ausgabe auslösen.
+
+1. Bestehende Zeiten notieren; `set_schedule` ersetzt den kompletten Geräteplan.
+2. Eine künftige tägliche Zeit über die HA-Aktion übertragen. Der Status muss
+   „Gesendet, am Gerät unbestätigt“ lauten, niemals „vom Gerät bestätigt“.
+3. Alarm und Gerätebewegung zum vorgesehenen Zeitpunkt direkt beobachten.
+4. Mit `times: []` alle Plätze deaktivieren und prüfen, dass alte Alarme entfallen.
+5. Den gewünschten vollständigen Plan wiederherstellen.
+
+Ein in PillCalendar angezeigter Plan allein ist keine unabhängige Bestätigung:
+Die App führt ihre eigene Planverwaltung. Entscheidend ist das Geräteverhalten.
 
 ## BLE-Fehler
 
