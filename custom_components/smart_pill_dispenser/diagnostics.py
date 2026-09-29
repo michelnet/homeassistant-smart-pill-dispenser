@@ -25,14 +25,15 @@ async def async_get_config_entry_diagnostics(
             {
                 "transport": "home_assistant_ble_local_or_proxy",
                 "protocol_source": (
-                    "FF00/FF02/FF03 observed on A1310; "
-                    "SPP-derived query framing under BLE validation"
+                    "FF00/FF02/FF03 firmware/battery queries verified "
+                    "on A1310 firmware 2.0.0 via local BLE"
                 ),
                 "protocol_status": status.protocol_status,
                 "services": status.services,
                 "read_errors": status.read_errors,
                 "notification_count": status.notification_count,
                 "notification_bytes": status.notification_bytes,
+                "control_notifications": status.control_notifications,
                 "queries_sent": status.queries_sent,
                 "status": {"firmware": status.firmware, "battery": status.battery},
             }

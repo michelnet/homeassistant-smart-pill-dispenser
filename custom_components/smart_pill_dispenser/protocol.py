@@ -58,6 +58,11 @@ class FrameDecoder:
     def __init__(self) -> None:
         self._buffer = bytearray()
 
+    @property
+    def has_pending_data(self) -> bool:
+        """Whether a notification continues an incomplete application frame."""
+        return bool(self._buffer)
+
     def feed(self, data: bytes) -> list[tuple[bytes, bytes]]:
         """Return complete frames, retaining incomplete data.
 

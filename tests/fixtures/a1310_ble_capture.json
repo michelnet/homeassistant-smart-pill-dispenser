@@ -1,0 +1,17 @@
+{
+  "source": "Local macOS BLE capture, A1310, 2026-09-29",
+  "queries": [
+    "23470600",
+    "23470800"
+  ],
+  "notifications": [
+    "0101",
+    "02b600",
+    "0101",
+    "264706020000",
+    "0101",
+    "264708019c5f"
+  ],
+  "expected_firmware": "2.0.0",
+  "expected_battery": 95
+}

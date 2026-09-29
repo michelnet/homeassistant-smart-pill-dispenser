@@ -4,25 +4,27 @@ Experimentelle Custom Integration für **Quin A1310 / Artikel A1310-WHBL-1**,
 verwendet mit **PillCalendar**. **ESPHome-Bluetooth-Proxys sind als BLE-Anbindung
 implementiert. Ein lokaler Bluetooth-Adapter ist dafür nicht nötig.**
 
-**Stand 0.1.0: Die BLE-Verbindung und Geräteanalyse sind implementiert; die
-herstellerspezifische Steuerung über BLE ist noch offen.** Es liegt noch kein
-Test an einem echten A1310-WHBL-1 vor. Die Integration ist deshalb derzeit eine
-Grundlage zur Geräteprüfung, keine vollständige Steuerung des Pillenspenders.
+**Stand 0.1.1:** Verbindung und GATT-Dienste wurden durch eine Gerätediagnose
+bestätigt. Der Spender bietet `FF00` mit Schreib-Characteristic `FF02` und
+Notify-Characteristic `FF03`, aber keine Standard-Akku-/Firmwaredienste.
 
-## Was über deinen BLE-Proxy funktioniert
+Die Integration sendet nun gezielt die aus der Android-App abgeleiteten
+Firmware- und Akkuabfragen über `FF02` und empfängt Antworten auf `FF03`.
+**Firmware- und Akkuabfrage wurden direkt am Gerät über BLE bestätigt: Firmware 2.0.0, Akku 95 %.**
+Die erweiterte Statusabfrage über den ESPHome-Proxy muss noch in Home Assistant getestet werden. Alarmpläne und Ausgabe sind nicht implementiert.
 
-- Einrichtung über die Home-Assistant-Oberfläche; Erkennung von Namen `A1310*`.
-- Verbindung über Home Assistants Bluetooth-Routing und aktive ESPHome-Proxys.
-- Erfassung der angebotenen GATT-Dienste, Characteristics und Eigenschaften.
-- Akku/Firmware **nur falls** der Spender die entsprechenden standardisierten
-  Bluetooth-Dienste bereitstellt. Andernfalls bleiben diese Werte unbekannt.
-- Sensoren für Anzahl der BLE-Dienste, Protokollstatus und letzte Aktualisierung.
-- Manuelle Aktualisierung und Diagnoseexport für die weitere Protokollanalyse.
+## BLE-Funktionen
 
-Über BLE werden aktuell keine herstellerspezifischen Schreibbefehle gesendet.
-Alarmpläne, Lautstärke, Klingeltöne, Pillenausgabe und Einnahmehistorie sind über
-BLE noch nicht verfügbar. Eine erfolgreiche GATT-Verbindung bestätigt nicht,
-welche dieser Funktionen sich später umsetzen lassen.
+- Einrichtung, GATT-Erfassung und Verbindung über aktive ESPHome-Proxys.
+- Gezielte Firmware-/Akkuabfragen nur beim beobachteten `FF00`-Profil.
+- Verarbeitung aufgeteilter Antworten; Werte nur bei passenden Antwortpaketen.
+- Fallback auf standardisierte Akku-/Firmwaredienste, falls vorhanden.
+- Diagnose mit Abfragebytes, Antwortanzahl, Byteanzahl und Fehlerstatus.
+- Aktualisierung alle fünf Minuten sowie manuell per Button.
+
+Die BLE-Anfragen ändern nach dem bekannten App-Protokoll weder Einstellungen
+noch Alarmpläne oder Uhrzeit. Lautstärke, Klingelton und Pillenausgabe bleiben
+über BLE nicht implementiert. Fremde GATT-Dienste werden nicht beschrieben.
 
 ## Einrichtung mit ESPHome-Proxy und iPhone
 
@@ -55,16 +57,40 @@ Der Proxy muss in Reichweite des Spenders einen freien Verbindungsplatz haben.
    Integrationseintrag auswählen.
 
 Die Diagnose enthält die Service-/Characteristic-UUIDs und Eigenschaften,
-aber keine MAC-Adresse, Seriennummer oder Medikamentendaten. **Diese Datei ist
-der nächste benötigte Schritt, um das BLE-Profil deines Geräts zu untersuchen.**
+aber keine MAC-Adresse, Seriennummer oder Medikamentendaten. Sie hilft bei der Prüfung, ob und wie der Spender auf die Abfragen antwortet.
 Die automatische Abfrage läuft alle fünf Minuten. Nach Aufwecken lässt sich
 „Aktualisieren“ drücken. Während der Spender schläft oder die App verbunden
 ist, kann die Verbindung fehlschlagen.
 
 Wenn der Akku unbekannt bleibt, ist das nicht automatisch ein Verbindungsfehler:
 Der Spender stellt möglicherweise nur herstellerspezifische GATT-Dienste bereit.
-Der Sensor „BLE-Protokoll“ zeigt bis zur Implementierung eines bestätigten
-Geräteprofils „Geräteprofil noch zu bestätigen“.
+Der Sensor „BLE-Protokoll“ unterscheidet empfangene Werte, fehlende Antworten
+und unerwartete Antwortformate. Nach einem erfolglosen Abfragezyklus bleiben
+die betroffenen Werte unbekannt; alte Werte werden nicht als frisch ausgegeben.
+
+## Direkt auf diesem Mac diagnostizieren
+
+Der direkte Test auf dem Mac war erfolgreich. Nach Installation der
+Entwicklungsabhängigkeiten kann das Werkzeug den Spender
+über das lokale Bluetooth des Computers untersuchen, ohne laufendes Home Assistant:
+
+```sh
+.venv/bin/python scripts/ble_probe.py --query --output /tmp/a1310-diagnostics.json
+```
+
+Spender aufwecken, in Reichweite stellen, PillCalendar schließen und bei
+Verbindungskonflikten die HA-Integration vorübergehend deaktivieren. macOS muss
+dem ausführenden Programm Bluetooth-Zugriff erlauben. Ohne `--query` werden
+nur Dienste erfasst. Bei mehreren Spendern kann `--address` das Gerät auswählen;
+unter macOS ist das eine CoreBluetooth-UUID, keine HA-MAC-Adresse.
+
+Mit `--capture` lassen sich zusätzlich bis zu 16 gekürzte rohe
+Benachrichtigungen für die lokale Analyse aufzeichnen. Der normale HA-
+Diagnoseexport enthält keine rohen Nutzdaten.
+
+Das Werkzeug verwendet den lokalen Adapter. Es greift nicht eigenständig auf
+den ESPHome-Proxy zu. Wenn lokal kein Bluetooth verfügbar ist, bleibt der
+Diagnoseexport über Home Assistant der nutzbare Weg.
 
 ## HACS
 
@@ -104,5 +130,7 @@ python3.14 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-Tests nutzen simulierte Geräteantworten und ersetzen keine Prüfung am Spender.
+Tests nutzen simulierte Antworten und einen Regressionstest mit tatsächlich
+aufgezeichneten Firmware-/Akkuantworten. Eine gesamte HA-/Proxy-Prüfung bleibt
+zusätzlich nötig.
 Die APK und dekompilierter Herstellercode sind nicht Teil des Repositorys.

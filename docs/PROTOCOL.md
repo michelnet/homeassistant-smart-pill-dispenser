@@ -16,7 +16,7 @@ Untersucht am 29.09.2026:
 Das Paket wurde nicht ausgeführt. Die folgende Beschreibung ist eine eigene
 Zusammenfassung der relevanten Codepfade, kein veröffentlichtes Hersteller-SDK.
 Die Hashprüfung identifiziert den analysierten Download; sie ist keine unabhängige
-Prüfung der Hersteller-Signatur. Hardwareaufzeichnungen liegen noch nicht vor.
+Prüfung der Hersteller-Signatur. Eine spätere direkte BLE-Aufzeichnung für Firmware/Akku liegt vor (siehe unten).
 
 ## BLE über ESPHome-Proxy
 
@@ -25,15 +25,43 @@ connectable=True)` und `bleak_retry_connector.establish_connection`. Der
 BLEDevice stammt aus HA und kann damit zu einem ESPHome-Proxy gehören. Es
 wird kein eigener Scanner gestartet und kein lokaler Adapter vorausgesetzt.
 
-Derzeit werden ausschließlich GATT-Metadaten erfasst und die optionalen
-Bluetooth-SIG-Characteristics Battery Level (`180f` / `2a19`) sowie Firmware
-Revision (`180a` / `2a26`) gelesen. Sie werden nur innerhalb des jeweiligen
-Standarddienstes gelesen. Keine Hersteller-Characteristic wird probeweise
-beschrieben oder abonniert. Fehlende Standardwerte bleiben unbekannt.
+Die vom Benutzer bereitgestellte Gerätediagnose bestätigt zwei Dienste:
+GAP `1800` mit `2a00` sowie Herstellerdienst `ff00`. Darin liegen `ff01` (read),
+`ff02` (write, write-without-response) und `ff03` (notify, CCCD `2902`).
+Die anonymisierte Liste ist als `tests/fixtures/a1310_gatt.json` abgelegt.
 
-Die Hersteller-UUIDs und das BLE-Framing des A1310 sind nicht bestätigt.
-Die SPP-Analyse unten darf nicht mit einem bestätigten BLE-Profil verwechselt
-werden. Die Diagnose des echten Geräts ist der nächste notwendige Nachweis.
+Version 0.1.1 abonniert `ff03` und sendet über `ff02` ausschließlich
+`23 47 06 00` (Firmware) sowie nach passender Antwort `23 47 08 00` (Akku).
+Für das beobachtete Profil wird Write-with-response verwendet. Eine GATT-
+Schreibbestätigung zählt nicht als Geräteantwort; erforderlich sind passende
+Notifications im unten beschriebenen Format. Bei fehlender Firmwareantwort
+wird keine weitere Anfrage gesendet. Warteschlange und Antwortzeit sind begrenzt.
+
+Am 29.09.2026 wurde die direkte BLE-Abfrage auf dem Mac am echten A1310
+bestätigt. Auf `FF03` kamen zunächst `01 01` und `02 b6 00`: zusätzliche
+Transportnachrichten, die nicht in den `&G`-Antwortparser gehören. Die gleichen
+Nachrichten sind auch in der [Phomemo-Implementierung desselben Herstellers](https://github.com/jeffrafter/phomemo/blob/main/README.md)
+beobachtet. Ihre Behandlung als Transportmeldungen wird durch die anschließend
+korrekt gelesenen Geräteantworten gestützt; die genaue Bedeutung des zweiten
+Pakets ist nicht unabhängig bestätigt (vermutlich Größeninformation).
+
+Nach Trennung dieser Meldungen wurden folgende Antworten empfangen:
+
+| Anfrage | Tatsächliche Antwort | Auswertung |
+| --- | --- | --- |
+| `23 47 06 00` | `26 47 06 02 00 00` | Firmware 2.0.0 |
+| `23 47 08 00` | `26 47 08 01 9c 5f` | Akku 95 % (drittes Nutzdatenbyte) |
+
+Die anonymisierte Aufzeichnung liegt in `tests/fixtures/a1310_ble_capture.json`.
+Sie wird als Regressionstest abgespielt, inklusive Transportmeldungen.
+Nur eigenständige Transportmeldungen **zwischen** Anwendungsframes werden
+übersprungen, nicht identische Bytes innerhalb fragmentierter Firmwarewerte.
+
+Die Statusabfragen sind damit auf diesem Gerät lokal bestätigt. Das komplette
+HA-/ESPHome-Proxy-Zusammenspiel mit der neuen Abfragelogik ist noch zu prüfen.
+Es werden keine Initialisierungs-, Alarm-, Uhrzeit- oder Ausgabebefehle gesendet.
+Diagnosen enthalten Anzahl/Byteanzahl und Anzahl der Transportmeldungen,
+Abfragebytes, validierte Werte und Fehlercodes. `ff01` wird nicht interpretiert.
 
 Referenzen: [ESPHome Proxy](https://esphome.io/components/bluetooth_proxy/),
 [Bleak API](https://bleak.readthedocs.io/en/latest/api/client.html).
@@ -103,5 +131,6 @@ Abfrage für einen vollständigen aktuellen Ladestatus.
 - Die in der App ebenfalls vorhandene Alarmprogrammierung wird nicht genutzt,
   solange Slotanzahl, Datumssemantik und Auswirkungen am Gerät unbestätigt sind.
 
-Tests enthalten synthetische, aus diesen App-Codepfaden abgeleitete Bytefolgen.
-Sie sind ausdrücklich keine aufgezeichneten Antworten eines realen Spenders.
+Die meisten Tests verwenden synthetische, aus der App abgeleitete Bytefolgen.
+Der BLE-Regressionstest verwendet zusätzlich die oben dokumentierte echte
+Aufzeichnung. Für SPP liegen weiterhin keine Hardwareaufzeichnungen vor.

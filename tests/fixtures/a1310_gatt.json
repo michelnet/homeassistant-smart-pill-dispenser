@@ -1,0 +1,43 @@
+[
+  {
+    "uuid": "00001800-0000-1000-8000-00805f9b34fb",
+    "characteristics": [
+      {
+        "uuid": "00002a00-0000-1000-8000-00805f9b34fb",
+        "properties": [
+          "read"
+        ],
+        "descriptors": []
+      }
+    ]
+  },
+  {
+    "uuid": "0000ff00-0000-1000-8000-00805f9b34fb",
+    "characteristics": [
+      {
+        "uuid": "0000ff01-0000-1000-8000-00805f9b34fb",
+        "properties": [
+          "read"
+        ],
+        "descriptors": []
+      },
+      {
+        "uuid": "0000ff02-0000-1000-8000-00805f9b34fb",
+        "properties": [
+          "write",
+          "write-without-response"
+        ],
+        "descriptors": []
+      },
+      {
+        "uuid": "0000ff03-0000-1000-8000-00805f9b34fb",
+        "properties": [
+          "notify"
+        ],
+        "descriptors": [
+          "00002902-0000-1000-8000-00805f9b34fb"
+        ]
+      }
+    ]
+  }
+]

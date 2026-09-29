@@ -5,7 +5,7 @@
     "step": {
       "user": {
         "title": "Connect A1310 via Bluetooth",
-        "description": "Wake the dispenser and close PillCalendar on your phone. BLE uses your active ESPHome Bluetooth proxy. This initial BLE version discovers services and reads standard values if available. The proprietary BLE functions are not decoded yet; download diagnostics after setup.",
+        "description": "Wake the dispenser and close PillCalendar. BLE uses your active ESPHome proxy. When the A1310 service is detected, experimental firmware and battery queries are sent. Download diagnostics if the values remain unknown.",
         "data": {
           "address": "Bluetooth address",
           "transport": "Connection"
@@ -48,7 +48,12 @@
       "protocol_status": {
         "name": "BLE protocol",
         "state": {
-          "awaiting_device_profile": "Device profile awaiting verification"
+          "awaiting_device_profile": "Device profile awaiting verification",
+          "readings_received": "Firmware and battery received",
+          "partial_readings": "Partial response received",
+          "no_response": "No matching response",
+          "unexpected_response": "Unexpected response format",
+          "communication_error": "Communication error"
         }
       }
     },

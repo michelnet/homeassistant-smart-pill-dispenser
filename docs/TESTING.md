@@ -9,7 +9,9 @@ BLE-Tests prüfen insbesondere:
 - Auswahl eines connectable BLEDevice aus Home Assistants Bluetooth-Routing.
 - Weitergabe dieses Proxy-Geräts an Bleak statt Aufbau einer lokalen Verbindung.
 - GATT-Erfassung auch ohne standardisierte Akku-/Firmwaredienste.
-- Ausschließlich Lesen erlaubter Standard-Characteristics, keine Vendor-Writes.
+- Ausschließlich Firmware-/Akkuanfragen auf dem beobachteten FF00-Profil;
+  keine Einstellungsbefehle oder Zugriffe auf fremde Schreib-Characteristics.
+- Wiedergabe realer A1310-Antworten inklusive Transportnachrichten 0101/02b600.
 - Fehler bei passiven/unerreichbaren Proxys und Freigabe des Verbindungsplatzes
   bei Fehlern und Abbruch.
 
@@ -34,11 +36,15 @@ Diagnosen.
 5. Eventuelle Standard-Akku-/Firmwarewerte mit PillCalendar vergleichen.
 6. Schlafenlassen, Aufwecken und „Aktualisieren“ ausprobieren.
 
-**Offen:** Proprietäre BLE-Service-/Characteristic-Zuordnung, Framing, mögliche
-Initialisierung/Authentifizierung und die Bestätigung von Antworten. Eine
-GATT-Liste allein kann diese Fragen noch nicht vollständig klären. Falls nötig,
-folgt danach ein gezielter Abgleich mit der iPhone-Kommunikation oder zusätzlichen
-Herstellerinformationen.
+## Direkter Gerätetest auf dem Mac
+
+Mit `scripts/ble_probe.py --query --capture` wurden Firmware **2.0.0** und
+Akku **95 %** empfangen. Die Transportmeldungen wurden von den eigentlichen
+Geräteantworten getrennt. Die nachgestellten Tests enthalten diese Aufzeichnung.
+
+**Noch offen:** Statusabfragen nach Installation von 0.1.1 über den ESPHome-Proxy,
+andere Firmwarevarianten und weitere Spenderfunktionen. Der direkte Mac-Test
+bestätigt diese zusätzlichen Punkte nicht automatisch.
 
 ## BLE-Fehler
 

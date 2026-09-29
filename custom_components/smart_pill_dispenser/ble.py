@@ -34,6 +34,7 @@ class BLEStatus:
     notification_count: int = 0
     notification_bytes: int = 0
     queries_sent: tuple[str, ...] = ()
+    control_notifications: int = 0
 
     @property
     def service_count(self) -> int:
@@ -111,9 +112,13 @@ class A1310BLEClient:
                     return BLEStatus(
                         vendor.battery if vendor.battery is not None else battery,
                         vendor.firmware if vendor.firmware is not None else firmware,
-                        services, tuple(errors), vendor.state,
-                        vendor.notification_count, vendor.notification_bytes,
+                        services,
+                        tuple(errors),
+                        vendor.state,
+                        vendor.notification_count,
+                        vendor.notification_bytes,
                         tuple(vendor.queries_sent),
+                        vendor.control_notifications,
                     )
             except (BleakError, OSError, TimeoutError) as err:
                 raise TransportError("BLE connection or GATT discovery failed") from err

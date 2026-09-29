@@ -1,11 +1,10 @@
-"""Experimental FF00 query transport using GATT observed on the user's A1310.
+"""FF00 firmware/battery queries verified locally on A1310 firmware 2.0.0.
 
-The GATT endpoints are hardware-observed. The command framing comes from the
-Android SPP client and still requires confirmation over BLE. Only firmware and
-battery queries are sent, never settings, time, alarms or dispensing commands.
+Only status queries are sent, never settings, time, alarms or dispensing commands.
 """
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from bleak.exc import BleakError
@@ -17,8 +16,12 @@ A1310_WRITE = "0000ff02-0000-1000-8000-00805f9b34fb"
 A1310_NOTIFY = "0000ff03-0000-1000-8000-00805f9b34fb"
 QUERY_TIMEOUT = 5
 PROTOCOL_STATES = [
-    "awaiting_device_profile", "readings_received", "partial_readings",
-    "no_response", "unexpected_response", "communication_error",
+    "awaiting_device_profile",
+    "readings_received",
+    "partial_readings",
+    "no_response",
+    "unexpected_response",
+    "communication_error",
 ]
 
 
@@ -32,6 +35,7 @@ class QueryResult:
     errors: list[str] = field(default_factory=list)
     notification_count: int = 0
     notification_bytes: int = 0
+    control_notifications: int = 0
     queries_sent: list[str] = field(default_factory=list)
 
 
@@ -41,17 +45,26 @@ def find_endpoints(services):
     for service in services:
         if service.uuid != A1310_SERVICE:
             continue
-        writers = [c for c in service.characteristics if c.uuid == A1310_WRITE
-                   and ("write" in c.properties or "write-without-response" in c.properties)]
-        readers = [c for c in service.characteristics if c.uuid == A1310_NOTIFY
-                   and "notify" in c.properties]
+        writers = [
+            c
+            for c in service.characteristics
+            if c.uuid == A1310_WRITE
+            and ("write" in c.properties or "write-without-response" in c.properties)
+        ]
+        readers = [
+            c
+            for c in service.characteristics
+            if c.uuid == A1310_NOTIFY and "notify" in c.properties
+        ]
         if len(writers) != 1 or len(readers) != 1:
             return None
         candidates.append((writers[0], readers[0]))
     return candidates[0] if len(candidates) == 1 else None
 
 
-async def query_a1310(client) -> QueryResult:
+async def query_a1310(
+    client, on_notification: Callable[[bytes], None] | None = None
+) -> QueryResult:
     """Subscribe before querying; validate replies and always stop notifications."""
     result = QueryResult()
     endpoints = find_endpoints(client.services)
@@ -70,6 +83,8 @@ async def query_a1310(client) -> QueryResult:
             return
         result.notification_count += 1
         result.notification_bytes += len(data)
+        if on_notification is not None:
+            on_notification(bytes(data))
         if len(data) > 512 or queue.full():
             overflow = True
             # Wake a waiting query even if the oversized notification was first.
@@ -92,6 +107,18 @@ async def query_a1310(client) -> QueryResult:
                 data = await queue.get()
                 if overflow:
                     raise ProtocolError("Notification buffer overflow")
+                # Module-level notifications occur between application frames.
+                # Do not drop identical bytes within a fragmented firmware reply.
+                if not decoder.has_pending_data and (
+                    data == b"\x01\x01"
+                    or (
+                        len(data) == 3
+                        and data[0] == 2
+                        and 0 < int.from_bytes(data[1:], "little") <= 512
+                    )
+                ):
+                    result.control_notifications += 1
+                    continue
                 frames = decoder.feed(data)
                 for header, payload in frames:
                     if header == expected:

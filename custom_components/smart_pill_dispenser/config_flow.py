@@ -85,7 +85,7 @@ class PillConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_ADDRESS, default=self._address): str,
                     vol.Required(CONF_TRANSPORT, default=TRANSPORT_BLE): vol.In(
                         {
-                            TRANSPORT_BLE: "BLE / ESPHome proxy (discovery)",
+                            TRANSPORT_BLE: "BLE / ESPHome proxy",
                             TRANSPORT_SPP: "Local Classic / SPP (experimental)",
                         }
                     ),

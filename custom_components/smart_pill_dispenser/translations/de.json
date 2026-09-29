@@ -5,7 +5,7 @@
     "step": {
       "user": {
         "title": "A1310 über Bluetooth verbinden",
-        "description": "Spender aufwecken und PillCalendar auf dem iPhone schließen. BLE verwendet deinen aktiven ESPHome-Bluetooth-Proxy. Dieser erste BLE-Stand erfasst Dienste und liest Standardwerte, falls vorhanden. Die herstellerspezifischen BLE-Funktionen sind noch nicht entschlüsselt; nach Einrichtung bitte die Diagnose herunterladen.",
+        "description": "Spender aufwecken und PillCalendar schließen. BLE nutzt deinen aktiven ESPHome-Proxy. Bei erkanntem A1310-Dienst werden experimentelle Firmware- und Akkuabfragen gesendet. Bei unbekannten Werten bitte die Diagnose herunterladen.",
         "data": {
           "address": "Bluetooth-Adresse",
           "transport": "Verbindung"
@@ -48,7 +48,12 @@
       "protocol_status": {
         "name": "BLE-Protokoll",
         "state": {
-          "awaiting_device_profile": "Geräteprofil noch zu bestätigen"
+          "awaiting_device_profile": "Geräteprofil noch zu bestätigen",
+          "readings_received": "Firmware und Akku empfangen",
+          "partial_readings": "Antwort teilweise empfangen",
+          "no_response": "Keine passende Antwort",
+          "unexpected_response": "Unerwartetes Antwortformat",
+          "communication_error": "Kommunikationsfehler"
         }
       }
     },
