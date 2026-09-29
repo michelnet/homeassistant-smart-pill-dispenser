@@ -1,8 +1,4 @@
-"""Read-only GATT over HA's local/remote BLE routing, including ESPHome proxies.
-
-Read only SIG Battery/Device Information characteristics. Proprietary A1310 BLE
-endpoints are unknown; expose metadata without guessing UART characteristics.
-"""
+"""Standard GATT and experimental A1310 status queries via ESPHome proxies."""
 
 import asyncio
 from contextlib import suppress
@@ -13,6 +9,7 @@ from bleak_retry_connector import BleakClientWithServiceCache, establish_connect
 from homeassistant.components import bluetooth
 from homeassistant.core import HomeAssistant
 
+from .ble_protocol import query_a1310
 from .transport import TransportError
 
 BATTERY_SERVICE = "0000180f-0000-1000-8000-00805f9b34fb"
@@ -34,6 +31,9 @@ class BLEStatus:
     services: tuple[dict, ...]
     read_errors: tuple[str, ...] = ()
     protocol_status: str = "awaiting_device_profile"
+    notification_count: int = 0
+    notification_bytes: int = 0
+    queries_sent: tuple[str, ...] = ()
 
     @property
     def service_count(self) -> int:
@@ -106,7 +106,15 @@ class A1310BLEClient:
                                 errors.append("invalid_standard_firmware")
                         except UnicodeDecodeError:
                             errors.append("invalid_standard_firmware")
-                    return BLEStatus(battery, firmware, services, tuple(errors))
+                    vendor = await query_a1310(client)
+                    errors.extend(vendor.errors)
+                    return BLEStatus(
+                        vendor.battery if vendor.battery is not None else battery,
+                        vendor.firmware if vendor.firmware is not None else firmware,
+                        services, tuple(errors), vendor.state,
+                        vendor.notification_count, vendor.notification_bytes,
+                        tuple(vendor.queries_sent),
+                    )
             except (BleakError, OSError, TimeoutError) as err:
                 raise TransportError("BLE connection or GATT discovery failed") from err
             finally:

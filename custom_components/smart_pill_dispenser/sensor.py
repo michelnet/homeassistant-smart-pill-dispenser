@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import PillConfigEntry
 from .ble import BLEStatus
+from .ble_protocol import PROTOCOL_STATES
 from .entity import PillEntity
 
 DESCRIPTIONS = (
@@ -46,7 +47,7 @@ BLE_DESCRIPTIONS = (
         key="protocol_status",
         translation_key="protocol_status",
         device_class=SensorDeviceClass.ENUM,
-        options=["awaiting_device_profile"],
+        options=PROTOCOL_STATES,
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
