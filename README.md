@@ -8,13 +8,15 @@ implementiert. Ein lokaler Bluetooth-Adapter ist dafür nicht nötig.**
 direkt über BLE als auch – vom Benutzer bestätigt – über den ESPHome-Proxy.
 Neu sind eine experimentelle Übertragung täglicher Alarmzeiten und ein
 manuelles Einnahmeprotokoll in Home Assistant.
+Ein einzelner programmierter Alarm wurde am A1310 mit Firmware 2.0.0 über
+lokales BLE erfolgreich getestet; die Alarmübertragung über HA/Proxy ist noch offen.
 
 | Funktion | Stand |
 | --- | --- |
 | Firmware / Akku | Am Gerät und über HA-Proxy bestätigt |
-| Bis zu sechs tägliche Alarmzeiten | Implementiert; aus der App abgeleitet, Geräteprüfung noch offen |
+| Bis zu sechs tägliche Alarmzeiten | Implementiert; ein einzelner Alarm über lokales BLE am Gerät bestätigt, mehrere Zeiten und HA-Proxy noch offen |
 | Einnahmestatus | Manuelle Angabe in HA, keine automatische Erkennung |
-| Zeitgesteuerte Ausgabe | Wird vom Gerät anhand seines Alarmplans ausgeführt; neue Alarmübertragung noch unbestätigt |
+| Zeitgesteuerte Ausgabe | Gerätegesteuert; programmierter Alarm bestätigt, tatsächliche Ausgabe nicht separat protokolliert |
 | Sofortige Ausgabe per HA-Button | Nicht verfügbar: kein belegter BLE-Befehl gefunden |
 
 ## BLE-Funktionen
@@ -106,8 +108,9 @@ Der Sensor **Alarmplan-Übertragung** zeigt nach erfolgreichem BLE-Schreiben
 Zeiten, Zeitzone und den Sendezeitpunkt. Das ist kein ausgelesener Geräteplan:
 Die untersuchte App enthält weder eine Alarmabfrage noch eine auswertbare
 Bestätigung für diese Befehle. Änderungen durch PillCalendar werden in HA
-nicht erkannt. Die Wirkung der neuen Alarmbefehle muss noch am Gerät geprüft
-werden, zunächst mit leerem Spender.
+nicht erkannt. Ein einzelner Alarm wurde über lokales BLE am echten Gerät
+bestätigt. Mehrere Alarmzeiten, Deaktivierung, tägliche Wiederholung und der
+Alarmtransfer über HA/Proxy sind noch zu prüfen, zunächst mit leerem Spender.
 
 Bei Abbruch kann der Geräteplan teilweise geändert sein. HA speichert diesen
 Fehlerzustand und sendet beim nächsten Start oder Polling nichts erneut.
@@ -163,6 +166,23 @@ Mit `--capture` lassen sich zusätzlich bis zu 16 gekürzte rohe
 Benachrichtigungen für die lokale Analyse aufzeichnen. Der normale HA-
 Diagnoseexport enthält keine rohen Nutzdaten.
 
+Für die Untersuchung möglicher Entnahmeereignisse kann das Werkzeug bis zu
+300 Sekunden spontane Nachrichten aufzeichnen:
+
+```sh
+.venv/bin/python scripts/ble_probe.py --query --listen 60 --output /tmp/a1310-events.json
+```
+
+Erst nach der Meldung „Aufzeichnung läuft“ den Auffangbehälter herausnehmen,
+kurz warten und wieder einsetzen. Keine zusätzliche Dosis ausgeben. Das Werkzeug
+ändert keine Alarmzeiten und sendet keinen Ausgabebefehl. Die Aufzeichnung enthält
+relative Paketzeitpunkte und begrenzte rohe Nutzdaten; unbekannte Nachrichten
+werden nicht automatisch als Einnahme eingestuft. Eine Behälterentnahme wäre
+zunächst ein Entnahmenachweis, kein Nachweis des Schluckens von Tabletten.
+Mit dem zusätzlichen Argument `--read-state` wird währenddessen auch der
+lesbare Herstellerwert `FF01` höchstens einmal pro Sekunde abgefragt. Die Werte
+werden unverändert zur Analyse gespeichert; ihre Bedeutung ist nicht bekannt.
+
 Das Werkzeug verwendet den lokalen Adapter. Es greift nicht eigenständig auf
 den ESPHome-Proxy zu. Wenn lokal kein Bluetooth verfügbar ist, bleibt der
 Diagnoseexport über Home Assistant der nutzbare Weg.
@@ -206,6 +226,7 @@ python3.14 -m venv .venv
 ```
 
 Tests nutzen simulierte Antworten und einen Regressionstest mit tatsächlich
-aufgezeichneten Firmware-/Akkuantworten. Die neue Alarmprogrammierung ist noch
-nicht am Gerät verifiziert; die Statusabfrage über HA-/Proxy wurde bestätigt.
+aufgezeichneten Firmware-/Akkuantworten. Ein einzelner programmierter Alarm
+wurde über lokales BLE am Gerät bestätigt; die Statusabfrage über HA/Proxy
+wurde ebenfalls bestätigt. Weitere Alarmtests stehen noch aus.
 Die APK und dekompilierter Herstellercode sind nicht Teil des Repositorys.

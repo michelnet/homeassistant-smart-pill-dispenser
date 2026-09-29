@@ -140,11 +140,32 @@ und Akku abgefragt, anschließend erfolgen einmalige Schreibvorgänge mit GATT-
 Bestätigung und mindestens 50 ms Abstand. Es gibt keine automatischen Retries
 von Schreibbefehlen und keinen automatischen Transfer beim Start oder Polling.
 
-**Diese Alarmbefehle sind noch nicht am echten Gerät bestätigt.** Der App-Parser
+**Ein einzelner programmierter Alarm ist am echten Gerät bestätigt** (siehe
+Gerätetest unten). Der App-Parser
 `e8.f.c` verarbeitet keine Bestätigung zu `&S01`, `&S02` oder `&S03`, und die
 A1310-Schnittstelle enthält keine Alarmabfrage. GATT-Schreiberfolg wird daher
 als `sent_unverified` angezeigt. Ein Fehler oder Abbruch lässt den tatsächlichen
 Geräteplan unklar; der Zustand wird über Neustarts hinweg gespeichert.
+
+### Gerätetest: einzelner Alarm um 20:53 Uhr
+
+Am 29.09.2026 wurde nach ausdrücklicher Auswahl des Benutzers der vollständige
+Plan durch ausschließlich **20:53 Uhr täglich** ersetzt. Die Übertragung über
+lokales Mac-BLE lief von 20:51:10 bis 20:51:11 Europe/Zurich. Die vorausgehende
+Statusabfrage lieferte Firmware 2.0.0 und Akku 88 %. Der Test verwendete den
+gemeinsamen Encoder `encode_schedule`, synchronisierte die Uhr und schrieb
+einen aktiven sowie fünf deaktivierte Alarmplätze. Alle acht Schreibvorgänge
+erhielten eine GATT-Bestätigung; es gab keine Wiederholung.
+
+Der Benutzer bestätigte anschließend, dass der Alarm funktioniert. Damit ist
+die Wirkung eines einzelnen programmierten Alarms über lokales BLE belegt.
+Mehrere Zeiten, tägliche Wiederholung, das Ausbleiben deaktivierter Alarme,
+Alarmtransfer über HA/Proxy und tatsächliche Ausgabe wurden nicht separat
+bestätigt. Eine auslesbare Gerätebestätigung bleibt unbekannt; der technische
+Übertragungsstatus bleibt deshalb `sent_unverified`.
+
+Lokales Übertragungsprotokoll:
+`dist/captures/a1310-alarm-2053-write-20260929.json` (nicht versioniert).
 
 ## Einnahme und sofortige Ausgabe
 
@@ -158,6 +179,91 @@ aber keine Grundlage für deren Implementierung.
 Der Benutzer bestätigt für die iPhone-App: keine Schaltfläche zur Sofortausgabe;
 Ausgabe erfolgt am Gerät oder nach Zeitplan. Die geplante Ausgabe wird deshalb
 über die Alarmprogrammierung abgedeckt, ohne einen Sofortbefehl zu erfinden.
+
+### Direkte Beobachtung der Behälterentnahme
+
+Am 29.09.2026 wurde nach erfolgreicher Firmware-/Akkuabfrage für 60 Sekunden
+`FF03` abonniert. Der Benutzer bestätigt, den Auffangbehälter innerhalb dieses
+Fensters herausgenommen und wieder eingesetzt zu haben. Die Verbindung blieb
+bestehen. Empfangen wurden ausschließlich:
+
+| Offset ab Beginn | Bytes | Einordnung |
+| --- | --- | --- |
+| 60 ms | `01 01` | bekannte Transportmeldung |
+| 64 ms | `02 b6 00` | bekannte Transportmeldung |
+| 1410 ms | `40 47 03 11` | laut App-Parser Ladezustand, keine Entnahme |
+
+Die restliche Aufzeichnung enthielt keine weiteren Notifications. Damit ist
+für diesen Versuch kein Entnahmesignal belegt. Das schließt unbekannte
+Abfragebefehle oder einen anderen Geräteablauf nicht aus, reicht aber nicht
+für einen automatisch gesetzten Einnahmezeitpunkt.
+
+Eine zweite Aufzeichnung nach vorübergehender Deaktivierung der HA-Integration
+lief ebenfalls 60 Sekunden ohne Verbindungsabbruch. Sie enthielt nur `01 01`
+und `02 b6 00`. Zusätzlich wurde die lesbare Characteristic `FF01` 57-mal
+abgefragt: jede Antwort war leer (0 Bytes). Auch daraus lässt sich kein
+Behälterzustand ablesen. Der Benutzer hat anschließend klargestellt, dass bei
+diesen ersten Versuchen kein Zeitplan für den Testzeitpunkt aktiv war. Sie
+belegen daher nicht das Verhalten bei Entnahme während eines aktiven Alarms.
+
+### Wiederholung bei aktivem Alarm
+
+Ein weiterer Versuch am 29.09.2026 dauerte 120 Sekunden. Der Benutzer bestätigte
+vor der Verbindung einen bereits aktiven Alarm und während der Aufzeichnung:
+Behälter entnommen, danach Alarm beendet. Dieser Durchlauf abonnierte `FF03`
+und las `FF01`, ohne Firmware-/Akkuanfragen oder sonstige Gerätebefehle zu senden.
+
+- Notifications: ausschließlich `01 01` (56 ms) und `02 b6 00` (57 ms).
+- `FF01`: 114 erfolgreiche Lesezugriffe, jedes Mal 0 Bytes.
+- Kein Verbindungsabbruch, keine verworfenen Samples, kein Lesefehler.
+
+Auch bei diesem bestätigten Alarm-/Entnahmeablauf ist über die beobachteten
+GATT-Endpunkte kein Entnahmesignal nachgewiesen. Der Benutzer stellte danach
+klar, dass die BLE-Verbindung zu spät aufgebaut wurde. Der Alarmbeginn selbst
+lag vor dem Aufzeichnungsfenster; dieser Versuch erfasst den vollständigen
+Alarmablauf deshalb nicht. Unbekannte Aktivierungs-/Abfragebefehle und andere
+Transportwege sind damit nicht ausgeschlossen. Ein automatisch gesetzter
+Zeitpunkt wäre ohne weiteren Protokollnachweis weiterhin unbegründet.
+
+Die vollständige Aufzeichnung inklusive Kontext liegt lokal unter
+`dist/captures/a1310-active-alarm-20260929T170425Z.json` (nicht versioniert).
+
+### Wiederholung mit BLE-Verbindung vor dem Alarm
+
+Die nächste Aufzeichnung begann am 29.09.2026 um 17:08:23 UTC und dauerte
+300 Sekunden. Der Benutzer bestätigte ausdrücklich: Der Alarm begann erst nach
+dem Startsignal der laufenden BLE-Aufzeichnung und endete bei Behälterentnahme.
+Genaue Zeitpunkte der physischen Aktionen wurden nicht separat erfasst.
+
+- `FF03`: nur `01 01` und `02 b6 00`, beide bei 64 ms nach Aufzeichnungsbeginn.
+- `FF01`: 284 erfolgreiche Lesezugriffe, durchgehend leere Antworten.
+- Keine verlorenen Samples, Lese-/Cleanup-Fehler oder Verbindungsabbrüche.
+- Keine Anwendungsbefehle gesendet; ausschließlich Notify-Abonnement und Lesen.
+
+Damit ist auch für den Ablauf mit bereits vor Alarmbeginn bestehender Verbindung
+kein Entnahmesignal an diesen GATT-Endpunkten belegt. Das Ergebnis schließt
+unbekannte Aktivierungs-/Abfragebefehle nicht aus und darf nicht als Beweis für
+eine grundsätzlich fehlende Gerätefunktion verstanden werden.
+
+Lokale Aufzeichnung mit dem vom Benutzer bestätigten Kontext:
+`dist/captures/a1310-before-alarm-20260929T170823Z.json` (nicht versioniert).
+
+### Terminierter Versuch um 19:20 Uhr
+
+Für einen vom Benutzer auf 19:20 Uhr gesetzten Timer lief die BLE-Aufzeichnung
+am 29.09.2026 von **19:18:09 bis 19:23:09 Europe/Zurich**. Der Termin lag damit
+innerhalb der durchgehend verbundenen Aufzeichnung. Nach 19:20 Uhr bestätigte
+der Benutzer zunächst den noch laufenden Alarm ohne Entnahme und anschließend
+die Entnahme mit beendetem Alarm. Exakte physische Ereigniszeitpunkte wurden
+nicht separat erfasst.
+
+Ergebnis: ausschließlich `01 01` und `02 b6 00` bei jeweils 57 ms nach Beginn;
+284 leere FF01-Leseantworten. Keine Verbindungsabbrüche, verlorenen Samples,
+Lese- oder Cleanup-Fehler. Auch für diesen zeitlich abgegrenzten Versuch fehlt
+ein nachgewiesenes Entnahmesignal im beobachteten BLE-Profil.
+
+Lokale Datei: `dist/captures/a1310-timer-1920-20260929T171809Z.json`
+(nicht versioniert).
 
 Die HA-Funktion `record_intake` speichert deshalb ausschließlich manuelle Angaben
 lokal und löst ein entsprechend gekennzeichnetes Ereignis aus. Es werden keine
@@ -176,8 +282,9 @@ der durch die Alarmzeiten gesteuert wird, kein von HA beobachteter Erfolg.
 - Die Zuordnung zum A1310 stammt aus dem BLE-Namen bzw. der manuellen Auswahl.
   Das Protokoll besitzt hier keine ausgelesene Modellkennung.
 - Abweichende Firmware und Schlafverhalten sind nur begrenzt untersucht.
-- Der Alarmplan ist aus dem App-Code abgeleitet; Gerätewirkung und Verhalten
-  nach Zeitumstellungen sind noch zu prüfen. Wochentags- und Einmalalarme werden
+- Der Alarmplan ist aus dem App-Code abgeleitet; ein einzelner Alarm wurde am
+  Gerät bestätigt. Weitere Alarmfälle und das Verhalten nach Zeitumstellungen
+  sind noch zu prüfen. Wochentags- und Einmalalarme werden
   nicht angeboten, da A1310Box im untersuchten Pfad tägliche Wiederholung erzwingt.
 
 Die meisten Tests verwenden synthetische, aus der App abgeleitete Bytefolgen.

@@ -51,13 +51,19 @@ Geräteantworten getrennt. Die nachgestellten Tests enthalten diese Aufzeichnung
 Der Benutzer hat anschließend korrekte Firmware und angezeigten Akku auch in
 Home Assistant über den ESPHome-Proxy bestätigt.
 
-**Noch offen:** Alarmprogrammierung aus 0.2.0 und andere Firmwarevarianten.
+Ein einzelner Alarm aus der Alarmprogrammierung ab 0.2.0 wurde am 29.09.2026
+über lokales BLE bestätigt: vollständiger Plan mit ausschließlich 20:53 Uhr,
+Übertragung um 20:51:10–20:51:11 Europe/Zurich, Firmware 2.0.0, Akku 88 %.
+Der Benutzer bestätigte anschließend, dass der Alarm funktioniert.
+
+**Noch offen:** mehrere Alarmzeiten, Deaktivierung bestehender Alarme,
+tägliche Wiederholung, Alarmtransfer über HA/Proxy und andere Firmwarevarianten.
 Automatische Einnahmeerkennung und sofortige Ausgabe sind nicht implementiert,
 da dafür kein Protokollnachweis vorliegt.
 
 ## Neue Alarmfunktion am Gerät prüfen
 
-Die Entwicklungstests ändern keine realen Alarmzeiten. Für die erste Prüfung
+Die automatischen Entwicklungstests ändern keine realen Alarmzeiten. Für die Prüfung
 einen **leeren Spender** verwenden: Ein Alarm kann die Ausgabe auslösen.
 
 1. Bestehende Zeiten notieren; `set_schedule` ersetzt den kompletten Geräteplan.
@@ -69,6 +75,32 @@ einen **leeren Spender** verwenden: Ein Alarm kann die Ausgabe auslösen.
 
 Ein in PillCalendar angezeigter Plan allein ist keine unabhängige Bestätigung:
 Die App führt ihre eigene Planverwaltung. Entscheidend ist das Geräteverhalten.
+Der erfolgreiche Einzelalarmtest bestätigt noch nicht das Ausbleiben deaktivierter
+Alarme oder die tatsächliche Ausgabe; beides wurde nicht separat protokolliert.
+
+## Untersuchung automatischer Entnahmeereignisse
+
+`scripts/ble_probe.py --query --listen 60 --read-state` untersucht sowohl
+Notifications als auch den lesbaren FF01-Wert. Eine echte 60-Sekunden-Messung
+mit bestätigter Behälterentnahme ergab nur Transport- und Lademeldungen.
+Eine zweite Messung mit FF01-Abfragen ergab 57 leere Leseantworten und nur
+Transportmeldungen. Bei einer Wiederholung mit bereits aktivem Alarm bestätigte
+der Benutzer die Entnahme und das Ende des Alarms: In 120 Sekunden kamen nur
+zwei Transportmeldungen; alle 114 FF01-Leseantworten waren leer. Die Verbindung
+blieb bestehen. Details und Aussagegrenzen stehen in `PROTOCOL.md`.
+
+Nach dem Hinweis, dass die Verbindung zuvor zu spät aufgebaut worden war,
+folgte eine 300-Sekunden-Aufzeichnung mit ausdrücklich bestätigtem Alarmbeginn
+erst nach Verbindungsaufbau. Auch hier wurden nur die zwei Transportmeldungen
+empfangen; alle 284 FF01-Leseantworten waren leer. Es gab keine Abbrüche oder
+verlorenen Samples. Ein automatischer Entnahmezeitpunkt ist damit weiterhin
+nicht durch das beobachtete BLE-Protokoll gestützt.
+
+Die sieben zusätzlichen Werkzeugtests prüfen das Erhalten unbekannter Pakete,
+begrenzte Rohdatenmengen, Verbindungsabbruch, Cleanup nach Abbruch sowie
+FF01-Lesezugriff, dessen Fehlerpfad und weiterlaufende Abfragen nach der ersten
+Minute bei längeren Aufzeichnungen. Das Werkzeug löst keine Ausgabe aus
+und interpretiert keine Nachricht als Einnahme.
 
 ## BLE-Fehler
 
