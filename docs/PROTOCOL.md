@@ -1,0 +1,87 @@
+# Protokollnachweise
+
+## Herkunft
+
+Untersucht am 29.09.2026:
+
+- Hersteller-Downloadseite: <https://downloadapp.qu-in.life/Pill-Calendar/>
+- Vom Hersteller verlinkte Android-App:
+  <https://play.google.com/store/apps/details?id=com.quin.pillcalendar>
+- Statisch analysiertes Paket: PillCalendar **3.10.0**, Android-Versioncode **125**.
+- APK SHA-256:
+  `0fdf3a5b76d97dede776d2c28806b8b78e1090a00dc8103b131479fb92488e09`
+- Bezugsseite des archivierten Pakets:
+  <https://apkpure.net/pillcalendar/com.quin.pillcalendar/download/3.10.0>
+
+Das Paket wurde nicht ausgeführt. Die folgende Beschreibung ist eine eigene
+Zusammenfassung der relevanten Codepfade, kein veröffentlichtes Hersteller-SDK.
+Die Hashprüfung identifiziert den analysierten Download; sie ist keine unabhängige
+Prüfung der Hersteller-Signatur. Hardwareaufzeichnungen liegen noch nicht vor.
+
+## Transport
+
+`PillBoxName.BOX_NAME_A1310` enthält `A1310`. Der Gerätemanager `e8.c`
+scannt BLE-Namen und filtert auf die Modellnamen. `PillBox.createConnector`
+erzeugt `g8.c`; `f8.b.run` verbindet über
+`createInsecureRfcommSocketToServiceRecord` mit der UUID
+`00001101-0000-1000-8000-00805f9b34fb` (Serial Port Profile).
+`g8.c$b` schreibt die Befehlsbytes unverändert in den Socket.
+
+In Home Assistant wird dafür ein kurzlebiges BlueZ-Clientprofil registriert.
+`Device1.ConnectProfile` führt die Verbindung aus; `Profile1.NewConnection`
+liefert den verbundenen Dateideskriptor. So wird kein RFCOMM-Kanal geraten.
+Alle Sitzungen dieser Integration sind serialisiert, da BlueZ SPP als ein
+gemeinsames Profil verwaltet. Ein fremder SPP-Client kann einen Profilkonflikt
+verursachen. Es wird kein fremdes Profil entfernt.
+
+Referenzen:
+
+- [BlueZ Profile API](https://bluez.readthedocs.io/en/latest/profile-api/)
+- [BlueZ Device API](https://bluez.readthedocs.io/en/latest/device-api/)
+- [Home Assistant Bluetooth APIs](https://developers.home-assistant.io/docs/core/bluetooth/api/)
+
+## Implementierte Befehle
+
+Quelle: `com.quin.bluetoothlib.device.A1310Box` und die Konstanten / der Parser
+in `e8.f`. Hexadezimale Darstellung; Antwortlängen ohne den dreiby­tigen Header.
+
+| Zweck | Anfrage | Antwortheader | Nutzdaten |
+| --- | --- | --- | --- |
+| Seriennummer | `23 47 04 00` | `26 47 04` | 15 Bytes Text |
+| Firmware | `23 47 06 00` | `26 47 06` | 3 Versionsbytes |
+| Akku | `23 47 08 00` | `26 47 08` | 3 Bytes, Prozentwert im dritten Byte |
+| Lautstärke lesen | `23 47 0a 00` | `26 47 0a` | 1 Byte, Bereich 0–3 |
+| Aktuellen Ton lesen | `23 47 0d 00` | `26 47 0d` | 1 Byte, Bereich 0–3 |
+| Lautstärke setzen | `23 53 0d VV` | Rücklesen mit `G 0a` | `VV` = 0–3 |
+| Ton setzen | `23 53 0f TT` | `26 53 0f`, danach Rücklesen mit `G 0d` | `TT` = 0–3 |
+
+Die App übersetzt ihre Lautstärke-UI-Werte 1–4 in Wire-Werte 0–3. Hier werden
+bewusst die Wire-Werte angezeigt; ob Stufe 0 stumm bedeutet, ist nicht bestätigt.
+Ton 0/1/2 entspricht A/B/C, Ton 3 dem bereits gespeicherten eigenen Ton.
+
+Die App wartet 50 ms vor jedem Senden. Die Integration übernimmt diesen Abstand.
+Serial- und Firmwareabfrage erfolgen vor den anderen Abfragen. Akkuwerte außerhalb
+0–100 sowie Lautstärke/Ton außerhalb 0–3 führen zu einem Fehler.
+
+Bekannte spontane Lade-/Batterieereignisse werden beim Lesen konsumiert, aber
+nicht als dauerhafter Zustand dargestellt: es gibt bisher keine gesicherte
+Abfrage für einen vollständigen aktuellen Ladestatus.
+
+## Bewusste Grenzen
+
+- Unbekannte Antwortheader brechen die Sitzung ab. Ohne verlässliche Länge lässt
+  sich ein Byte-Strom nicht sicher durch Suche nach einem weiteren Header zerlegen.
+- Fingerabdrucklisten, Firmwaredaten und andere variable Nachrichten werden nicht
+  angefordert und nicht interpretiert.
+- Ausbleibende Schreibbestätigungen führen nicht zu einem automatischen erneuten
+  Schreiben. Eine Änderung kann am Gerät schon angekommen sein.
+- Die Zuordnung zum A1310 stammt aus dem BLE-Namen bzw. der manuellen Auswahl.
+  Das Protokoll besitzt hier keine ausgelesene Modellkennung.
+- iOS-GATT-UUIDs, abweichende Firmware, Schlafverhalten und die Antwort des eigenen
+  Geräts sind noch offen. Falls dieses Gerät SPP nicht anbietet, ist ein zusätzlicher
+  BLE-Transport erforderlich; dieser ist nicht implementiert.
+- Die in der App ebenfalls vorhandene Alarmprogrammierung wird nicht genutzt,
+  solange Slotanzahl, Datumssemantik und Auswirkungen am Gerät unbestätigt sind.
+
+Tests enthalten synthetische, aus diesen App-Codepfaden abgeleitete Bytefolgen.
+Sie sind ausdrücklich keine aufgezeichneten Antworten eines realen Spenders.

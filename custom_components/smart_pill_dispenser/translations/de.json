@@ -1,0 +1,59 @@
+{
+  "title": "Smart Pill Dispenser",
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "A1310 verbinden (experimentell)",
+        "description": "Spender aufwecken und PillCalendar auf dem iPhone schließen. Diese experimentelle Integration benötigt einen lokalen Linux-Bluetooth-Classic-Adapter (SPP). ESPHome-BLE-Proxys reichen nicht aus. Die Kompatibilität am Gerät ist noch unbestätigt. Die Adresse steht in der Bluetooth-Geräteerkennung von Home Assistant.",
+        "data": {
+          "address": "Bluetooth-Adresse",
+          "adapter": "Lokaler Adapter (zum Beispiel hci0)"
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Bluetooth-MAC-Adresse (AA:BB:CC:DD:EE:FF) und Adapter wie hci0 eingeben.",
+      "cannot_connect": "Keine gültige A1310-Antwort. Gerät aufwecken, PillCalendar schließen und lokalen Bluetooth-Classic-Adapter sowie System-D-Bus prüfen. BLE-Proxys unterstützen SPP nicht."
+    },
+    "abort": {
+      "already_configured": "Dieser Spender ist bereits eingerichtet.",
+      "not_supported": "Dieses Gerät ist kein A1310.",
+      "linux_required": "Ein lokaler Linux-BlueZ-Adapter mit Bluetooth Classic ist erforderlich."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": {
+        "name": "Akku"
+      },
+      "firmware": {
+        "name": "Firmware"
+      },
+      "last_success": {
+        "name": "Letzte erfolgreiche Aktualisierung"
+      }
+    },
+    "number": {
+      "volume": {
+        "name": "Lautstärke"
+      }
+    },
+    "select": {
+      "ringtone": {
+        "name": "Klingelton",
+        "state": {
+          "tone_a": "Ton A",
+          "tone_b": "Ton B",
+          "tone_c": "Ton C",
+          "custom": "Vorhandener eigener Ton"
+        }
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Aktualisieren"
+      }
+    }
+  }
+}

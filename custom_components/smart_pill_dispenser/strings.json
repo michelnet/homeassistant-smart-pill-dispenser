@@ -1,0 +1,59 @@
+{
+  "title": "Smart Pill Dispenser",
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Connect A1310 (experimental)",
+        "description": "Wake the dispenser and close PillCalendar on your phone. This experimental integration uses a local Linux Bluetooth Classic adapter (SPP), not an ESPHome BLE proxy. Hardware compatibility is not yet verified. Enter the address shown in Home Assistant Bluetooth discovery.",
+        "data": {
+          "address": "Bluetooth address",
+          "adapter": "Local adapter (for example hci0)"
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Enter a Bluetooth MAC address (AA:BB:CC:DD:EE:FF) and adapter such as hci0.",
+      "cannot_connect": "No valid A1310 response. Wake the device, close PillCalendar and verify the local Bluetooth Classic adapter and system D-Bus. BLE-only proxies do not support SPP."
+    },
+    "abort": {
+      "already_configured": "This dispenser is already configured.",
+      "not_supported": "This device is not an A1310.",
+      "linux_required": "A local Linux BlueZ Bluetooth Classic adapter is required."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
+      "firmware": {
+        "name": "Firmware"
+      },
+      "last_success": {
+        "name": "Last successful update"
+      }
+    },
+    "number": {
+      "volume": {
+        "name": "Speaker volume"
+      }
+    },
+    "select": {
+      "ringtone": {
+        "name": "Ringtone",
+        "state": {
+          "tone_a": "Tone A",
+          "tone_b": "Tone B",
+          "tone_c": "Tone C",
+          "custom": "Existing custom tone"
+        }
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Refresh"
+      }
+    }
+  }
+}
